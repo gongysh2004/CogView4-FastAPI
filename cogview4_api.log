@@ -1,0 +1,138 @@
+2025-06-06 20:22:55,415 - __main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:22:55,415 - __main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:22:55,415 - __main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:22:55,438 - __main__ - INFO - [<module>:1021] - Starting CogView4 Image Generation API Server with persistent worker pool...
+2025-06-06 20:22:55,462 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:22:55,462 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:22:55,462 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:22:55,470 - cogview4_api_server - INFO - [startup_event:777] - Starting CogView4 API server...
+2025-06-06 20:22:55,470 - cogview4_api_server - INFO - [__init__:537] - Set multiprocessing start method to 'spawn' for CUDA compatibility
+2025-06-06 20:22:59,359 - __mp_main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:22:59,359 - __mp_main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:22:59,359 - __mp_main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:22:59,377 - cogview4_api_server - INFO - [__init__:561] - Initializing worker pool with 4 workers using 'spawn' method
+2025-06-06 20:22:59,378 - cogview4_api_server - INFO - [__init__:574] - Started worker process 0 using spawn method
+2025-06-06 20:22:59,379 - cogview4_api_server - INFO - [__init__:574] - Started worker process 1 using spawn method
+2025-06-06 20:22:59,380 - cogview4_api_server - INFO - [__init__:574] - Started worker process 2 using spawn method
+2025-06-06 20:22:59,380 - cogview4_api_server - INFO - [__init__:574] - Started worker process 3 using spawn method
+2025-06-06 20:22:59,380 - cogview4_api_server - INFO - [__init__:576] - Worker pool initialized with 4 workers
+2025-06-06 20:22:59,380 - cogview4_api_server - INFO - [startup_event:780] - Worker pool initialized successfully!
+2025-06-06 20:23:03,316 - __mp_main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,316 - __mp_main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,317 - __mp_main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,317 - __mp_main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,317 - __mp_main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,317 - __mp_main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,325 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,329 - __mp_main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,329 - __mp_main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,329 - __mp_main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,335 - worker_3 - INFO - [worker_process:143] - Worker 3 starting up...
+2025-06-06 20:23:03,335 - worker_0 - INFO - [worker_process:143] - Worker 0 starting up...
+2025-06-06 20:23:03,336 - Worker3 - INFO - Worker 3 starting up with proper logging configured...
+2025-06-06 20:23:03,336 - Worker0 - INFO - Worker 0 starting up with proper logging configured...
+2025-06-06 20:23:03,336 - Worker0 - INFO - Worker 0: Using cuda:0 (GPU 0 of 8 available)
+2025-06-06 20:23:03,339 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,339 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,339 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,349 - worker_1 - INFO - [worker_process:143] - Worker 1 starting up...
+2025-06-06 20:23:03,349 - Worker1 - INFO - Worker 1 starting up with proper logging configured...
+2025-06-06 20:23:03,364 - __mp_main__ - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,364 - __mp_main__ - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,364 - __mp_main__ - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,373 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:23:03,373 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:23:03,373 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:23:03,383 - worker_2 - INFO - [worker_process:143] - Worker 2 starting up...
+2025-06-06 20:23:03,383 - Worker2 - INFO - Worker 2 starting up with proper logging configured...
+2025-06-06 20:23:03,448 - Worker0 - INFO - Worker 0: CUDA device 0 initialized successfully
+2025-06-06 20:23:03,449 - Worker0 - INFO - Worker 0: Loading model on cuda:0...
+2025-06-06 20:23:06,352 - Worker1 - INFO - Worker 1: Using cuda:1 (GPU 1 of 8 available)
+2025-06-06 20:23:06,522 - Worker1 - INFO - Worker 1: CUDA device 1 initialized successfully
+2025-06-06 20:23:06,522 - Worker1 - INFO - Worker 1: Loading model on cuda:1...
+2025-06-06 20:23:09,389 - Worker2 - INFO - Worker 2: Using cuda:2 (GPU 2 of 8 available)
+2025-06-06 20:23:09,565 - Worker2 - INFO - Worker 2: CUDA device 2 initialized successfully
+2025-06-06 20:23:09,565 - Worker2 - INFO - Worker 2: Loading model on cuda:2...
+2025-06-06 20:23:12,345 - Worker3 - INFO - Worker 3: Using cuda:3 (GPU 3 of 8 available)
+2025-06-06 20:23:12,512 - Worker3 - INFO - Worker 3: CUDA device 3 initialized successfully
+2025-06-06 20:23:12,512 - Worker3 - INFO - Worker 3: Loading model on cuda:3...
+2025-06-06 20:24:13,872 - Worker0 - INFO - Worker 0: Successfully loaded base pipeline on cuda:0
+2025-06-06 20:24:13,874 - Worker0 - INFO - Worker 0: Model loading status updated to True
+2025-06-06 20:24:13,874 - Worker0 - INFO - Worker 0 ready to process requests on cuda:0
+2025-06-06 20:24:20,267 - Worker1 - INFO - Worker 1: Successfully loaded base pipeline on cuda:1
+2025-06-06 20:24:20,270 - Worker1 - INFO - Worker 1: Model loading status updated to True
+2025-06-06 20:24:20,270 - Worker1 - INFO - Worker 1 ready to process requests on cuda:1
+2025-06-06 20:24:21,491 - Worker2 - INFO - Worker 2: Successfully loaded base pipeline on cuda:2
+2025-06-06 20:24:21,493 - Worker2 - INFO - Worker 2: Model loading status updated to True
+2025-06-06 20:24:21,493 - Worker2 - INFO - Worker 2 ready to process requests on cuda:2
+2025-06-06 20:24:22,711 - Worker3 - INFO - Worker 3: Successfully loaded base pipeline on cuda:3
+2025-06-06 20:24:22,712 - Worker3 - INFO - Worker 3: Model loading status updated to True
+2025-06-06 20:24:22,712 - Worker3 - INFO - Worker 3 ready to process requests on cuda:3
+2025-06-06 20:25:01,039 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful sunset over mountains...', stream=True, steps=20
+2025-06-06 20:25:01,039 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:25:01,042 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:25:01,044 - cogview4_api_server - INFO - [<module>:51] - Starting CogView4 API with log level: INFO
+2025-06-06 20:25:01,044 - cogview4_api_server - INFO - [<module>:52] - Log file: cogview4_api.log
+2025-06-06 20:25:01,044 - cogview4_api_server - INFO - [<module>:53] - Number of worker processes: 4
+2025-06-06 20:25:01,053 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request e107375e to worker pool
+2025-06-06 20:25:01,054 - Worker1 - INFO - Worker 1: Processing request e107375e, stream=True
+2025-06-06 20:25:03,015 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful sunset over mountains...', stream=False, steps=20
+2025-06-06 20:25:03,015 - cogview4_api_server - INFO - [submit_non_streaming_request:666] - Submitted non-streaming request 3cf80228 to worker pool
+2025-06-06 20:25:03,015 - Worker2 - INFO - Worker 2: Processing request 3cf80228, stream=False
+2025-06-06 20:25:16,897 - cogview4_api_server - INFO - [create_image:905] - Non-streaming request completed in 13.88s: generated 1 images
+2025-06-06 20:26:41,892 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful landscape with mountains and a lake at...', stream=True, steps=20
+2025-06-06 20:26:41,892 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:26:41,893 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:26:41,893 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request f27f54c7 to worker pool
+2025-06-06 20:26:41,894 - Worker0 - INFO - Worker 0: Processing request f27f54c7, stream=True
+2025-06-06 20:27:36,365 - cogview4_api_server - INFO - [generate_sse_stream:842] - SSE streaming completed in 54.47s
+2025-06-06 20:29:30,350 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful sunset over mountains...', stream=True, steps=20
+2025-06-06 20:29:30,350 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:29:30,350 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:29:30,350 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request 845c2512 to worker pool
+2025-06-06 20:29:30,351 - Worker1 - INFO - Worker 1: Processing request 845c2512, stream=True
+2025-06-06 20:29:31,665 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful sunset over mountains...', stream=False, steps=20
+2025-06-06 20:29:31,666 - cogview4_api_server - INFO - [submit_non_streaming_request:666] - Submitted non-streaming request 96bb035c to worker pool
+2025-06-06 20:29:31,666 - Worker2 - INFO - Worker 2: Processing request 96bb035c, stream=False
+2025-06-06 20:29:44,468 - cogview4_api_server - INFO - [create_image:905] - Non-streaming request completed in 12.80s: generated 1 images
+2025-06-06 20:39:23,081 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A beautiful sunset over mountains...', stream=True, steps=20
+2025-06-06 20:39:23,081 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:39:23,082 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:39:23,083 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request 0db2a94f to worker pool
+2025-06-06 20:39:23,083 - Worker2 - INFO - Worker 2: Processing request 0db2a94f, stream=True
+2025-06-06 20:39:39,506 - cogview4_api_server - INFO - [generate_sse_stream:842] - SSE streaming completed in 16.42s
+2025-06-06 20:40:52,672 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A futuristic cityscape at night...', stream=True, steps=20
+2025-06-06 20:40:52,672 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:40:52,673 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:40:52,673 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request 42009f47 to worker pool
+2025-06-06 20:40:52,673 - Worker3 - INFO - Worker 3: Processing request 42009f47, stream=True
+2025-06-06 20:41:09,391 - cogview4_api_server - INFO - [generate_sse_stream:842] - SSE streaming completed in 16.72s
+2025-06-06 20:41:09,395 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A futuristic cityscape at night...', stream=False, steps=20
+2025-06-06 20:41:09,395 - cogview4_api_server - INFO - [submit_non_streaming_request:666] - Submitted non-streaming request 508384c0 to worker pool
+2025-06-06 20:41:09,396 - Worker0 - INFO - Worker 0: Processing request 508384c0, stream=False
+2025-06-06 20:41:22,077 - cogview4_api_server - INFO - [create_image:905] - Non-streaming request completed in 12.68s: generated 1 images
+2025-06-06 20:42:16,738 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A futuristic cityscape at night with a flying 气球 l...', stream=True, steps=20
+2025-06-06 20:42:16,738 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:42:16,739 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:42:16,739 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request 5ff24643 to worker pool
+2025-06-06 20:42:16,739 - Worker3 - INFO - Worker 3: Processing request 5ff24643, stream=True
+2025-06-06 20:42:32,694 - cogview4_api_server - INFO - [generate_sse_stream:842] - SSE streaming completed in 15.95s
+2025-06-06 20:42:32,699 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A futuristic cityscape at night with a flying 气球 l...', stream=False, steps=20
+2025-06-06 20:42:32,699 - cogview4_api_server - INFO - [submit_non_streaming_request:666] - Submitted non-streaming request 0773eae6 to worker pool
+2025-06-06 20:42:32,700 - Worker1 - INFO - Worker 1: Processing request 0773eae6, stream=False
+2025-06-06 20:42:45,341 - cogview4_api_server - INFO - [create_image:905] - Non-streaming request completed in 12.64s: generated 1 images
+2025-06-06 20:43:28,102 - cogview4_api_server - INFO - [create_image:861] - Received image generation request: prompt='A futuristic cityscape at night with a flying 气球 l...', stream=True, steps=30
+2025-06-06 20:43:28,102 - cogview4_api_server - INFO - [create_image:865] - Starting streaming response
+2025-06-06 20:43:28,103 - cogview4_api_server - INFO - [generate_sse_stream:799] - Starting SSE stream generation
+2025-06-06 20:43:28,104 - cogview4_api_server - INFO - [submit_streaming_request:622] - Submitted streaming request d9ba3060 to worker pool
+2025-06-06 20:43:28,104 - Worker2 - INFO - Worker 2: Processing request d9ba3060, stream=True
+2025-06-06 20:44:48,665 - cogview4_api_server - INFO - [generate_sse_stream:842] - SSE streaming completed in 80.56s
+2025-06-06 20:45:48,641 - cogview4_api_server - INFO - [shutdown_event:788] - Shutting down CogView4 API server...
+2025-06-06 20:45:48,641 - cogview4_api_server - INFO - [shutdown:731] - Shutting down worker pool...
+2025-06-06 20:45:49,677 - cogview4_api_server - INFO - [shutdown:744] - Worker pool shutdown complete
+2025-06-06 20:45:49,677 - cogview4_api_server - INFO - [shutdown_event:791] - Worker pool shut down successfully

@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogView4 Image Generation Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #81C784);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .results-container {
+            margin-top: 30px;
+        }
+        
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .image-item {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .image-item img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .image-info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .streaming-container {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            color: #2e7d32;
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .api-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 CogView4 Image Generation</h1>
+        
+        <div class="api-info">
+            <strong>API Server:</strong> <span id="apiUrl">http://192.168.95.192:8000</span> | 
+            <strong>Status:</strong> <span id="apiStatus">Checking...</span>
+        </div>
+        
+        <form id="generateForm">
+            <div class="form-group">
+                <label for="prompt">Prompt *</label>
+                <textarea id="prompt" placeholder="Describe the image you want to generate..." required>A beautiful landscape with mountains and a lake at sunset</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="negativePrompt">Negative Prompt</label>
+                <textarea id="negativePrompt" placeholder="What to avoid in the image...">blurry, low quality, distorted, ugly</textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="size">Image Size</label>
+                    <select id="size">
+                        <option value="512x512">512x512</option>
+                        <option value="1024x1024" selected>1024x1024</option>
+                        <option value="1280x720">1280x720 (16:9)</option>
+                        <option value="720x1280">720x1280 (9:16)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="numImages">Number of Images</label>
+                    <select id="numImages">
+                        <option value="1" selected>1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="guidanceScale">Guidance Scale</label>
+                    <input type="range" id="guidanceScale" min="1" max="20" step="0.5" value="5">
+                    <span id="guidanceValue">5.0</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="steps">Inference Steps</label>
+                    <input type="range" id="steps" min="10" max="100" step="5" value="50">
+                    <span id="stepsValue">50</span>
+                </div>
+            </div>
+            
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="streaming" checked>
+                <label for="streaming">Enable Streaming (Real-time Updates)</label>
+            </div>
+            
+            <button type="submit" id="generateBtn">🚀 Generate Images</button>
+        </form>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+        
+        <div class="streaming-container" id="streamingContainer">
+            <h3>🔄 Streaming Progress</h3>
+            <div id="streamingInfo"></div>
+        </div>
+        
+        <div class="results-container" id="resultsContainer">
+            <div id="errorMessage"></div>
+            <div id="successMessage"></div>
+            <div class="image-grid" id="imageGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://192.168.95.192:8000';
+        
+        // UI Elements
+        const form = document.getElementById('generateForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const streamingContainer = document.getElementById('streamingContainer');
+        const streamingInfo = document.getElementById('streamingInfo');
+        const imageGrid = document.getElementById('imageGrid');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const apiStatus = document.getElementById('apiStatus');
+        
+        // Range input updates
+        document.getElementById('guidanceScale').addEventListener('input', function() {
+            document.getElementById('guidanceValue').textContent = this.value;
+        });
+        
+        document.getElementById('steps').addEventListener('input', function() {
+            document.getElementById('stepsValue').textContent = this.value;
+        });
+        
+        // Check API health on load
+        async function checkApiHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const health = await response.json();
+                apiStatus.textContent = health.model_loaded ? 'Ready ✅' : 'Loading... ⏳';
+                apiStatus.style.color = health.model_loaded ? '#2e7d32' : '#f57c00';
+            } catch (error) {
+                apiStatus.textContent = 'Offline ❌';
+                apiStatus.style.color = '#d32f2f';
+            }
+        }
+        
+        // Clear messages
+        function clearMessages() {
+            errorMessage.innerHTML = '';
+            successMessage.innerHTML = '';
+        }
+        
+        // Show error message
+        function showError(message) {
+            errorMessage.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            successMessage.innerHTML = `<div class="success">✅ ${message}</div>`;
+        }
+        
+        // Update progress
+        function updateProgress(progress, text) {
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = text;
+        }
+        
+        // Add image to grid
+        function addImageToGrid(imageData, info = '') {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item';
+            
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${imageData}`;
+            img.alt = 'Generated Image';
+            
+            const imageInfo = document.createElement('div');
+            imageInfo.className = 'image-info';
+            imageInfo.textContent = info;
+            
+            imageItem.appendChild(img);
+            imageItem.appendChild(imageInfo);
+            imageGrid.appendChild(imageItem);
+        }
+        
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            clearMessages();
+            imageGrid.innerHTML = '';
+            
+            const formData = {
+                prompt: document.getElementById('prompt').value,
+                negative_prompt: document.getElementById('negativePrompt').value || null,
+                size: document.getElementById('size').value,
+                n: parseInt(document.getElementById('numImages').value),
+                guidance_scale: parseFloat(document.getElementById('guidanceScale').value),
+                num_inference_steps: parseInt(document.getElementById('steps').value),
+                stream: document.getElementById('streaming').checked,
+                response_format: 'b64_json'
+            };
+            
+            generateBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            
+            if (formData.stream) {
+                streamingContainer.style.display = 'block';
+                await handleStreamingGeneration(formData);
+            } else {
+                streamingContainer.style.display = 'none';
+                await handleRegularGeneration(formData);
+            }
+            
+            generateBtn.disabled = false;
+        });
+        
+        // Handle regular generation
+        async function handleRegularGeneration(formData) {
+            try {
+                updateProgress(0, 'Sending request...');
+                
+                const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                updateProgress(50, 'Processing...');
+                
+                const result = await response.json();
+                
+                updateProgress(100, 'Complete!');
+                
+                // Display images
+                result.data.forEach((imageData, index) => {
+                    addImageToGrid(imageData.b64_json, `Image ${index + 1}`);
+                });
+                
+                showSuccess(`Generated ${result.data.length} image(s) successfully!`);
+                
+            } catch (error) {
+                console.error('Generation error:', error);
+                showError(`Generation failed: ${error.message}`);
+            } finally {
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 2000);
+            }
+        }
+        
+        // Handle streaming generation
+        async function handleStreamingGeneration(formData) {
+            try {
+                updateProgress(0, 'Connecting...');
+                streamingInfo.innerHTML = '<div>Starting generation...</div>';
+                
+                const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                let intermediateCount = 0;
+                let buffer = ''; // Buffer to accumulate incomplete chunks
+                
+                // Storage for assembling chunked images
+                const chunkStorage = {};
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    // Add new chunk to buffer
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Split by lines and process complete lines
+                    const lines = buffer.split('\n');
+                    
+                    // Keep the last potentially incomplete line in the buffer
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            
+                            if (data === '[DONE]') {
+                                updateProgress(100, 'Generation complete!');
+                                showSuccess('Streaming generation completed successfully!');
+                                setTimeout(() => {
+                                    progressContainer.style.display = 'none';
+                                    streamingContainer.style.display = 'none';
+                                }, 3000);
+                                return;
+                            }
+                            
+                            // Skip empty data lines
+                            if (!data) continue;
+                            
+                            try {
+                                const result = JSON.parse(data);
+                                
+                                if (result.error) {
+                                    throw new Error(result.error);
+                                }
+                                
+                                const progress = (result.progress || 0) * 100;
+                                updateProgress(progress, `Step ${result.step}/${result.total_steps}`);
+                                
+                                // Handle chunked vs non-chunked images
+                                if (result.is_chunked) {
+                                    // Handle chunked image data
+                                    const chunkId = result.chunk_id;
+                                    const chunkIndex = result.chunk_index;
+                                    const totalChunks = result.total_chunks;
+                                    
+                                    // Initialize storage for this chunk sequence
+                                    if (!chunkStorage[chunkId]) {
+                                        chunkStorage[chunkId] = {
+                                            chunks: {},
+                                            totalChunks: totalChunks,
+                                            metadata: {
+                                                step: result.step,
+                                                total_steps: result.total_steps,
+                                                progress: result.progress,
+                                                is_final: result.is_final,
+                                                timestamp: result.timestamp
+                                            }
+                                        };
+                                    }
+                                    
+                                    // Store this chunk
+                                    chunkStorage[chunkId].chunks[chunkIndex] = result.image;
+                                    
+                                    // Update streaming info with chunk progress
+                                    streamingInfo.innerHTML = `
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}</div>
+                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>Chunks:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
+                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
+                                        <div><strong>Status:</strong> Assembling image...</div>
+                                    `;
+                                    
+                                    // Check if we have all chunks
+                                    if (Object.keys(chunkStorage[chunkId].chunks).length === totalChunks) {
+                                        // Reassemble the complete image
+                                        let completeImage = '';
+                                        for (let i = 0; i < totalChunks; i++) {
+                                            completeImage += chunkStorage[chunkId].chunks[i];
+                                        }
+                                        
+                                        // Process the complete image
+                                        intermediateCount = processCompleteImage(completeImage, chunkStorage[chunkId].metadata, intermediateCount);
+                                        
+                                        // Clean up storage
+                                        delete chunkStorage[chunkId];
+                                        
+                                        console.log(`Reassembled chunked image for step ${result.step} from ${totalChunks} chunks`);
+                                    }
+                                } else {
+                                    // Handle non-chunked complete image
+                                    streamingInfo.innerHTML = `
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}</div>
+                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
+                                        <div><strong>Status:</strong> Image ready</div>
+                                    `;
+                                    
+                                    if (result.image) {
+                                        intermediateCount = processCompleteImage(result.image, result, intermediateCount);
+                                    }
+                                }
+                                
+                            } catch (parseError) {
+                                console.error('Error parsing streaming data:', parseError);
+                                console.error('Problematic data:', data);
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Streaming error:', error);
+                showError(`Streaming failed: ${error.message}`);
+                progressContainer.style.display = 'none';
+                streamingContainer.style.display = 'none';
+            }
+        }
+        
+        // Process complete image (chunked or non-chunked)
+        function processCompleteImage(imageData, metadata, intermediateCount) {
+            if (!metadata.is_final && metadata.step < metadata.total_steps) {
+                // Intermediate image - show with reduced opacity
+                if (intermediateCount % 2 === 0) { // Show every other intermediate to avoid too much flickering
+                    const existingIntermediate = document.querySelector('.intermediate-image');
+                    if (existingIntermediate) {
+                        existingIntermediate.remove();
+                    }
+                    
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = 'image-item intermediate-image';
+                    tempDiv.style.opacity = '0.7';
+                    tempDiv.style.border = '2px dashed #4CAF50';
+                    
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${imageData}`;
+                    img.alt = 'Intermediate Image';
+                    
+                    const info = document.createElement('div');
+                    info.className = 'image-info';
+                    info.textContent = `Intermediate - Step ${metadata.step} (Full Quality)`;
+                    
+                    tempDiv.appendChild(img);
+                    tempDiv.appendChild(info);
+                    imageGrid.appendChild(tempDiv);
+                }
+                intermediateCount++;
+            } else {
+                // Final image
+                console.log('Adding final image');
+                
+                // Remove any intermediate images
+                const intermediate = document.querySelector('.intermediate-image');
+                if (intermediate) {
+                    intermediate.remove();
+                }
+                
+                addImageToGrid(imageData, `Final Image - Step ${metadata.step} (Full Quality)`);
+            }
+            return intermediateCount;
+        }
+        
+        // Initialize
+        checkApiHealth();
+        setInterval(checkApiHealth, 30000); // Check every 30 seconds
+    </script>
+</body>
+</html> 
