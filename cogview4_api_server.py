@@ -17,6 +17,7 @@ import multiprocessing as mp
 import queue
 import threading
 from dataclasses import dataclass
+from contextlib import asynccontextmanager
 
 import torch
 from PIL import Image
@@ -46,7 +47,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-NUM_WORKER_PROCESSES = int(os.getenv('NUM_WORKER_PROCESSES', '4'))
+NUM_WORKER_PROCESSES = int(os.getenv('NUM_WORKER_PROCESSES', '2'))
 
 logger.info(f"Starting CogView4 API with log level: {log_level}")
 logger.info(f"Log file: {log_file}")
@@ -64,6 +65,33 @@ class GenerationRequest:
     num_inference_steps: int
     num_images: int
     stream: bool
+
+@dataclass
+class BatchedGenerationRequest:
+    """Batched request data structure for worker processes"""
+    batch_id: str
+    prompts: List[str]
+    negative_prompts: List[Optional[str]]
+    request_ids: List[str]  # Maps to individual requests
+    num_images: int  # Images per prompt (same for all requests in batch)
+    width: int
+    height: int
+    guidance_scale: float
+    num_inference_steps: int
+    stream: bool
+    
+    def get_batch_key(self):
+        """Generate a key for batching compatible requests - NOTE: This method is not used"""
+        # This method is kept for compatibility but not actually used
+        # The BatchManager.get_batch_key() method is used instead
+        return (
+            self.width,
+            self.height,
+            self.guidance_scale,
+            self.num_inference_steps,
+            self.stream,
+            self.num_images
+        )
 
 @dataclass
 class GenerationResult:
@@ -281,117 +309,139 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                 except Exception as cleanup_error:
                     worker_logger.warning(f"Worker {worker_id}: Error during cleanup: {cleanup_error}")
         
-        def send_chunked_image(image_b64: str, step_index: int, is_final_step: bool, image_idx: int = 0, max_chunk_size: int = 400 * 1024):
+        def create_step_callback(request_info):
+            """Create a step callback function with proper request context"""
+            
+            def step_callback(pipeline_instance, step_index, timestep, callback_kwargs):
+                """Callback function that runs for each denoising step"""
+                try:
+                    # Get current latents
+                    latents = callback_kwargs.get("latents")
+                    if latents is not None:
+                        # Decode latents to image for every step
+                        with torch.no_grad():
+                            try:
+                                with torch.cuda.device(gpu_id):
+                                    # Decode latents to image
+                                    latents_for_decode = latents.to(pipeline_instance.vae.dtype) / pipeline_instance.vae.config.scaling_factor
+                                    decoded_image = pipeline_instance.vae.decode(latents_for_decode, return_dict=False)[0]
+                                    
+                                    # Post-process
+                                    decoded_image = pipeline_instance.image_processor.postprocess(decoded_image, output_type="pil")
+                                    
+                                    if isinstance(decoded_image, list) and len(decoded_image) > 0:
+                                        # Process ALL images, not just the first one
+                                        is_final_step = step_index == request_info['num_inference_steps'] - 1
+                                        
+                                        for image_idx, image in enumerate(decoded_image):
+                                            # Keep full resolution - no resizing
+                                            # Convert to base64 with appropriate format
+                                            buffer = io.BytesIO()
+                                            if is_final_step:
+                                                # Use PNG for final images (highest quality)
+                                                image.save(buffer, format='PNG', optimize=True)
+                                            else:
+                                                # Use high-quality JPEG for intermediate steps
+                                                if image.mode in ('RGBA', 'LA', 'P'):
+                                                    rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+                                                    if image.mode == 'P':
+                                                        image = image.convert('RGBA')
+                                                    rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                                                    image = rgb_image
+                                                image.save(buffer, format='JPEG', quality=90, optimize=True)
+                                            
+                                            buffer.seek(0)
+                                            image_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                                            
+                                            # Send via chunking system with image index
+                                            send_chunked_image(image_b64, step_index, is_final_step, image_idx, request_info)
+                                        
+                            except Exception as decode_error:
+                                worker_logger.warning(f"Worker {worker_id}: Error decoding step {step_index}: {decode_error}")
+                                        
+                except Exception as e:
+                    worker_logger.error(f"Worker {worker_id}: Error in step callback: {e}")
+                    # Send error to appropriate request(s)
+                    if 'request_ids' in request_info:  # Batched request
+                        for request_id in request_info['request_ids']:
+                            error_result = GenerationResult(
+                                request_id=request_id,
+                                result_type='error',
+                                data={'error': str(e)}
+                            )
+                            result_queue.put(error_result)
+                    else:  # Individual request
+                        error_result = GenerationResult(
+                            request_id=request_info['request_id'],
+                            result_type='error',
+                            data={'error': str(e)}
+                        )
+                        result_queue.put(error_result)
+                
+                return callback_kwargs
+            
+            return step_callback
+
+        def send_chunked_image(image_b64: str, step_index: int, is_final_step: bool, image_idx: int, request_info: dict, max_chunk_size: int = 400 * 1024):
             """Send large image data in chunks via multiple SSE events"""
-            if len(image_b64) <= max_chunk_size:
-                # Small enough to send in one piece
-                result = GenerationResult(
-                    request_id=gen_request.request_id,
-                    result_type='streaming_step',
-                    data={
-                        'step': step_index,
-                        'progress': (step_index + 1) / gen_request.num_inference_steps,
-                        'image': image_b64,
-                        'is_final': is_final_step,
-                        'timestamp': time.time(),
-                        'is_chunked': False,
-                        'image_index': image_idx,
-                        'total_images': gen_request.num_images
-                    }
-                )
-                result_queue.put(result)
-                worker_logger.debug(f"Worker {worker_id}: Sent single image for step {step_index}, image {image_idx + 1}/{gen_request.num_images}")
-            else:
-                # Need to chunk the image
-                chunk_id = f"{gen_request.request_id}_step_{step_index}_img_{image_idx}_{int(time.time() * 1000)}"
-                total_chunks = (len(image_b64) + max_chunk_size - 1) // max_chunk_size
-                
-                worker_logger.debug(f"Worker {worker_id}: Chunking image {image_idx + 1}/{gen_request.num_images} for step {step_index} into {total_chunks} chunks")
-                
-                for chunk_index in range(total_chunks):
-                    start_pos = chunk_index * max_chunk_size
-                    end_pos = min(start_pos + max_chunk_size, len(image_b64))
-                    chunk_data = image_b64[start_pos:end_pos]
-                    
+            
+            # Determine which request IDs to send to
+            if 'request_ids' in request_info:  # Batched request
+                target_request_ids = request_info['request_ids']
+            else:  # Individual request
+                target_request_ids = [request_info['request_id']]
+            
+            # Send to all target request IDs
+            for request_id in target_request_ids:
+                if len(image_b64) <= max_chunk_size:
+                    # Small enough to send in one piece
                     result = GenerationResult(
-                        request_id=gen_request.request_id,
+                        request_id=request_id,
                         result_type='streaming_step',
                         data={
                             'step': step_index,
-                            'progress': (step_index + 1) / gen_request.num_inference_steps,
-                            'image': chunk_data,
+                            'progress': (step_index + 1) / request_info['num_inference_steps'],
+                            'image': image_b64,
                             'is_final': is_final_step,
                             'timestamp': time.time(),
-                            'is_chunked': True,
-                            'chunk_id': chunk_id,
-                            'chunk_index': chunk_index,
-                            'total_chunks': total_chunks,
+                            'is_chunked': False,
                             'image_index': image_idx,
-                            'total_images': gen_request.num_images
+                            'total_images': request_info['num_images']
                         }
                     )
                     result_queue.put(result)
+                else:
+                    # Need to chunk the image
+                    chunk_id = f"{request_id}_step_{step_index}_img_{image_idx}_{int(time.time() * 1000)}"
+                    total_chunks = (len(image_b64) + max_chunk_size - 1) // max_chunk_size
                     
-                worker_logger.debug(f"Worker {worker_id}: Sent {total_chunks} chunks for step {step_index}, image {image_idx + 1}/{gen_request.num_images}")
-
-        def step_callback(pipeline_instance, step_index, timestep, callback_kwargs):
-            """Callback function that runs for each denoising step"""
-            try:
-                # Get current latents
-                latents = callback_kwargs.get("latents")
-                if latents is not None:
-                    # Decode latents to image for every step
-                    with torch.no_grad():
-                        try:
-                            with torch.cuda.device(gpu_id):
-                                # Decode latents to image
-                                latents_for_decode = latents.to(pipeline_instance.vae.dtype) / pipeline_instance.vae.config.scaling_factor
-                                decoded_image = pipeline_instance.vae.decode(latents_for_decode, return_dict=False)[0]
-                                
-                                # Post-process
-                                decoded_image = pipeline_instance.image_processor.postprocess(decoded_image, output_type="pil")
-                                
-                                if isinstance(decoded_image, list) and len(decoded_image) > 0:
-                                    # Process ALL images, not just the first one
-                                    is_final_step = step_index == gen_request.num_inference_steps - 1
-                                    
-                                    for image_idx, image in enumerate(decoded_image):
-                                        # Keep full resolution - no resizing
-                                        # Convert to base64 with appropriate format
-                                        buffer = io.BytesIO()
-                                        if is_final_step:
-                                            # Use PNG for final images (highest quality)
-                                            image.save(buffer, format='PNG', optimize=True)
-                                        else:
-                                            # Use high-quality JPEG for intermediate steps
-                                            if image.mode in ('RGBA', 'LA', 'P'):
-                                                rgb_image = Image.new('RGB', image.size, (255, 255, 255))
-                                                if image.mode == 'P':
-                                                    image = image.convert('RGBA')
-                                                rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                                                image = rgb_image
-                                            image.save(buffer, format='JPEG', quality=90, optimize=True)
-                                        
-                                        buffer.seek(0)
-                                        image_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                                        
-                                        # Send via chunking system with image index
-                                        send_chunked_image(image_b64, step_index, is_final_step, image_idx)
-                                    
-                        except Exception as decode_error:
-                            worker_logger.warning(f"Worker {worker_id}: Error decoding step {step_index}: {decode_error}")
-                                    
-            except Exception as e:
-                worker_logger.error(f"Worker {worker_id}: Error in step callback: {e}")
-                error_result = GenerationResult(
-                    request_id=gen_request.request_id,
-                    result_type='error',
-                    data={'error': str(e)}
-                )
-                result_queue.put(error_result)
+                    for chunk_index in range(total_chunks):
+                        start_pos = chunk_index * max_chunk_size
+                        end_pos = min(start_pos + max_chunk_size, len(image_b64))
+                        chunk_data = image_b64[start_pos:end_pos]
+                        
+                        result = GenerationResult(
+                            request_id=request_id,
+                            result_type='streaming_step',
+                            data={
+                                'step': step_index,
+                                'progress': (step_index + 1) / request_info['num_inference_steps'],
+                                'image': chunk_data,
+                                'is_final': is_final_step,
+                                'timestamp': time.time(),
+                                'is_chunked': True,
+                                'chunk_id': chunk_id,
+                                'chunk_index': chunk_index,
+                                'total_chunks': total_chunks,
+                                'image_index': image_idx,
+                                'total_images': request_info['num_images']
+                            }
+                        )
+                        result_queue.put(result)
             
-            return callback_kwargs
-        
+            # Log once for all requests
+            worker_logger.debug(f"Worker {worker_id}: Sent image for step {step_index}, image {image_idx + 1}/{request_info['num_images']} to {len(target_request_ids)} request(s)")
+
         def process_streaming_request(gen_request: GenerationRequest):
             """Handle streaming generation request"""
             try:
@@ -410,6 +460,13 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                     # Create generator for reproducible results
                     generator = torch.Generator(device=device).manual_seed(int(time.time() * 1000) % (2**32))
                     
+                    # Create request info for callback
+                    request_info = {
+                        'request_id': gen_request.request_id,
+                        'num_inference_steps': gen_request.num_inference_steps,
+                        'num_images': gen_request.num_images
+                    }
+                    
                     # Run the pipeline with callback
                     result = pipeline(
                         prompt=gen_request.prompt,
@@ -420,7 +477,7 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                         num_inference_steps=gen_request.num_inference_steps,
                         num_images_per_prompt=gen_request.num_images,
                         generator=generator,
-                        callback_on_step_end=step_callback,
+                        callback_on_step_end=create_step_callback(request_info),
                         callback_on_step_end_tensor_inputs=["latents"]
                     )
                 
@@ -443,6 +500,78 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                 result_queue.put(error_result)
             finally:
                 cleanup_pipeline(gen_request.request_id)
+        
+        def process_batched_streaming_request(batch_request: BatchedGenerationRequest):
+            """Handle batched streaming generation request"""
+            pipeline_id = batch_request.batch_id
+            try:
+                pipeline = get_pipeline_for_request(pipeline_id)
+            except Exception as e:
+                # Send error to all requests in batch
+                for request_id in batch_request.request_ids:
+                    error_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='error',
+                        data={'error': f"Failed to get pipeline: {str(e)}"}
+                    )
+                    result_queue.put(error_result)
+                return
+            
+            try:
+                with torch.cuda.device(gpu_id):
+                    # Create generator for reproducible results
+                    generator = torch.Generator(device=device).manual_seed(int(time.time() * 1000) % (2**32))
+                    
+                    # Create request info for callback (batched)
+                    request_info = {
+                        'request_ids': batch_request.request_ids,  # Multiple request IDs
+                        'num_inference_steps': batch_request.num_inference_steps,
+                        'num_images': batch_request.num_images
+                    }
+                    
+                    # Preprocess negative prompts to handle None values
+                    processed_negative_prompts = [
+                        neg_prompt if neg_prompt is not None else ""
+                        for neg_prompt in batch_request.negative_prompts
+                    ]
+                    
+                    # Run the pipeline with all prompts
+                    result = pipeline(
+                        prompt=batch_request.prompts,
+                        negative_prompt=processed_negative_prompts,
+                        width=batch_request.width,
+                        height=batch_request.height,
+                        guidance_scale=batch_request.guidance_scale,
+                        num_inference_steps=batch_request.num_inference_steps,
+                        num_images_per_prompt=batch_request.num_images,
+                        generator=generator,
+                        callback_on_step_end=create_step_callback(request_info),
+                        callback_on_step_end_tensor_inputs=["latents"]
+                    )
+                
+                # Send completion signals to all requests in batch
+                for request_id in batch_request.request_ids:
+                    completion_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='completed',
+                        data=None
+                    )
+                    result_queue.put(completion_result)
+                
+                worker_logger.debug(f"Worker {worker_id}: Batched streaming request {pipeline_id} completed for {len(batch_request.request_ids)} requests")
+                
+            except Exception as e:
+                worker_logger.exception(f"Worker {worker_id}: Error in batched streaming request: {e}")
+                # Send error to all requests in batch
+                for request_id in batch_request.request_ids:
+                    error_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='error',
+                        data={'error': str(e)}
+                    )
+                    result_queue.put(error_result)
+            finally:
+                cleanup_pipeline(pipeline_id)
         
         def process_non_streaming_request(gen_request: GenerationRequest):
             """Handle non-streaming generation request"""
@@ -504,32 +633,229 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
             finally:
                 cleanup_pipeline(gen_request.request_id)
         
+        def process_batched_non_streaming_request(batch_request: BatchedGenerationRequest):
+            """Handle batched non-streaming generation request"""
+            pipeline_id = batch_request.batch_id
+            try:
+                pipeline = get_pipeline_for_request(pipeline_id)
+            except Exception as e:
+                # Send error to all requests in batch
+                for request_id in batch_request.request_ids:
+                    error_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='error',
+                        data={'error': f"Failed to get pipeline: {str(e)}"}
+                    )
+                    result_queue.put(error_result)
+                return
+            
+            try:
+                with torch.cuda.device(gpu_id):
+                    # Create generator for reproducible results
+                    generator = torch.Generator(device=device).manual_seed(int(time.time() * 1000) % (2**32))
+                    
+                    # Preprocess negative prompts to handle None values
+                    processed_negative_prompts = [
+                        neg_prompt if neg_prompt is not None else ""
+                        for neg_prompt in batch_request.negative_prompts
+                    ]
+                    
+                    # Run the pipeline with all prompts
+                    result = pipeline(
+                        prompt=batch_request.prompts,
+                        negative_prompt=processed_negative_prompts,
+                        width=batch_request.width,
+                        height=batch_request.height,
+                        guidance_scale=batch_request.guidance_scale,
+                        num_inference_steps=batch_request.num_inference_steps,
+                        num_images_per_prompt=batch_request.num_images,
+                        generator=generator
+                    )
+                
+                # Distribute images back to individual requests
+                image_index = 0
+                for i, request_id in enumerate(batch_request.request_ids):
+                    # Get images for this request (each request has num_images images)
+                    request_images = result.images[image_index:image_index + batch_request.num_images]
+                    
+                    # Convert to base64
+                    image_data = []
+                    for image in request_images:
+                        buffer = io.BytesIO()
+                        image.save(buffer, format='PNG', optimize=True)
+                        buffer.seek(0)
+                        b64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                        image_data.append(b64_image)
+                    
+                    # Send result back for this request
+                    completion_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='completed',
+                        data={'images': image_data}
+                    )
+                    result_queue.put(completion_result)
+                    
+                    image_index += batch_request.num_images
+                
+                worker_logger.debug(f"Worker {worker_id}: Batched non-streaming request {pipeline_id} completed for {len(batch_request.request_ids)} requests")
+                
+            except Exception as e:
+                worker_logger.error(f"Worker {worker_id}: Error in batched non-streaming request: {e}")
+                # Send error to all requests in batch
+                for request_id in batch_request.request_ids:
+                    error_result = GenerationResult(
+                        request_id=request_id,
+                        result_type='error',
+                        data={'error': str(e)}
+                    )
+                    result_queue.put(error_result)
+            finally:
+                cleanup_pipeline(pipeline_id)
+        
         # Main worker loop
         worker_logger.info(f"Worker {worker_id} ready to process requests on {device}")
         
         while not shutdown_event.is_set():
             try:
                 # Get request from queue with timeout
-                gen_request = request_queue.get(timeout=1.0)
+                request_or_batch = request_queue.get(timeout=1.0)
                 
-                worker_logger.info(f"Worker {worker_id}: Processing request {gen_request.request_id}, stream={gen_request.stream}")
-                
-                if gen_request.stream:
-                    process_streaming_request(gen_request)
+                # Handle both individual and batched requests
+                if isinstance(request_or_batch, BatchedGenerationRequest):
+                    batch_request = request_or_batch
+                    worker_logger.info(f"Worker {worker_id}: Processing batched request {batch_request.batch_id} with {len(batch_request.prompts)} prompts, stream={batch_request.stream}")
+                    
+                    if batch_request.stream:
+                        process_batched_streaming_request(batch_request)
+                    else:
+                        process_batched_non_streaming_request(batch_request)
                 else:
-                    process_non_streaming_request(gen_request)
+                    gen_request = request_or_batch
+                    worker_logger.info(f"Worker {worker_id}: Processing individual request {gen_request.request_id}, stream={gen_request.stream}")
+                    
+                    if gen_request.stream:
+                        process_streaming_request(gen_request)
+                    else:
+                        process_non_streaming_request(gen_request)
                     
             except queue.Empty:
                 # No request available, continue loop
                 continue
             except Exception as e:
                 worker_logger.error(f"Worker {worker_id}: Unexpected error in main loop: {e}")
-                
+        
     except Exception as e:
         worker_logger.error(f"Worker {worker_id}: Failed to initialize: {e}")
         return
     
     worker_logger.info(f"Worker {worker_id} shutting down")
+
+
+class BatchManager:
+    """Manages batching of compatible requests"""
+    
+    def __init__(self, batch_timeout: float = 0.5, max_batch_size: int = 8):
+        self.batch_timeout = batch_timeout  # Time to wait for batching
+        self.max_batch_size = max_batch_size  # Max prompts per batch
+        self.pending_requests: Dict[tuple, List[GenerationRequest]] = {}  # batch_key -> requests
+        self.batch_timers: Dict[tuple, float] = {}  # batch_key -> timer
+        self.lock = threading.Lock()
+        
+    def get_batch_key(self, request: GenerationRequest) -> tuple:
+        """Generate a key for batching compatible requests"""
+        return (
+            request.width,
+            request.height,
+            request.guidance_scale,
+            request.num_inference_steps,
+            request.stream,
+            request.num_images  # Add num_images to batch key
+        )
+    
+    def add_request(self, request: GenerationRequest) -> Optional[BatchedGenerationRequest]:
+        """Add a request and return a batch if ready"""
+        with self.lock:
+            batch_key = self.get_batch_key(request)
+            
+            # Initialize batch if new
+            if batch_key not in self.pending_requests:
+                self.pending_requests[batch_key] = []
+                self.batch_timers[batch_key] = time.time()
+            
+            # Add request to batch
+            self.pending_requests[batch_key].append(request)
+            
+            # Check if batch is ready (size or timeout)
+            batch_requests = self.pending_requests[batch_key]
+            time_elapsed = time.time() - self.batch_timers[batch_key]
+            
+            if len(batch_requests) >= self.max_batch_size or time_elapsed >= self.batch_timeout:
+                # Create batched request
+                batch = self._create_batch(batch_key, batch_requests)
+                
+                # Clean up
+                del self.pending_requests[batch_key]
+                del self.batch_timers[batch_key]
+                
+                return batch
+            
+            return None
+    
+    def flush_pending_batches(self) -> List[BatchedGenerationRequest]:
+        """Flush all pending batches (for shutdown or timeout)"""
+        batches = []
+        
+        with self.lock:
+            for batch_key, batch_requests in self.pending_requests.items():
+                if batch_requests:  # Only create batch if there are requests
+                    batch = self._create_batch(batch_key, batch_requests)
+                    batches.append(batch)
+            
+            # Clear all pending
+            self.pending_requests.clear()
+            self.batch_timers.clear()
+        
+        return batches
+    
+    def check_timeouts(self) -> List[BatchedGenerationRequest]:
+        """Check for timed out batches"""
+        batches = []
+        current_time = time.time()
+        
+        with self.lock:
+            expired_keys = []
+            
+            for batch_key, start_time in self.batch_timers.items():
+                if current_time - start_time >= self.batch_timeout:
+                    batch_requests = self.pending_requests[batch_key]
+                    if batch_requests:
+                        batch = self._create_batch(batch_key, batch_requests)
+                        batches.append(batch)
+                    expired_keys.append(batch_key)
+            
+            # Clean up expired batches
+            for key in expired_keys:
+                del self.pending_requests[key]
+                del self.batch_timers[key]
+        
+        return batches
+    
+    def _create_batch(self, batch_key: tuple, requests: List[GenerationRequest]) -> BatchedGenerationRequest:
+        """Create a batched request from individual requests"""
+        first_request = requests[0]  # Use first request as template
+        
+        return BatchedGenerationRequest(
+            batch_id=str(uuid.uuid4())[:8],
+            prompts=[req.prompt for req in requests],
+            negative_prompts=[req.negative_prompt for req in requests],
+            request_ids=[req.request_id for req in requests],
+            num_images=first_request.num_images,
+            width=first_request.width,
+            height=first_request.height,
+            guidance_scale=first_request.guidance_scale,
+            num_inference_steps=first_request.num_inference_steps,
+            stream=first_request.stream
+        )
 
 
 class WorkerPool:
@@ -582,6 +908,37 @@ class WorkerPool:
             logger.info(f"Started worker process {i} using spawn method")
         
         logger.info(f"Worker pool initialized with {len(self.workers)} workers")
+
+        # Initialize batch manager
+        self.batch_manager = BatchManager(batch_timeout=0.5, max_batch_size=8)
+        self.batch_enabled = os.getenv('ENABLE_PROMPT_BATCHING', 'true').lower() == 'true'
+        
+        # Start batch timeout checker thread
+        if self.batch_enabled:
+            self.batch_thread = threading.Thread(target=self._batch_timeout_checker, daemon=True)
+            self.batch_thread.start()
+            logger.info("Prompt batching enabled - timeout checker started")
+        else:
+            logger.info("Prompt batching disabled")
+    
+    def _batch_timeout_checker(self):
+        """Background thread to check for batch timeouts"""
+        while not self.shutdown_event.is_set():
+            try:
+                # Check for timed out batches
+                expired_batches = self.batch_manager.check_timeouts()
+                
+                # Submit expired batches to workers
+                for batch in expired_batches:
+                    self.request_queue.put(batch)
+                    logger.debug(f"Submitted timed-out batch {batch.batch_id} with {len(batch.prompts)} prompts")
+                
+                # Sleep briefly before next check
+                time.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"Error in batch timeout checker: {e}")
+                time.sleep(1.0)
     
     def all_models_loaded(self) -> bool:
         """Check if all workers have successfully loaded their models"""
@@ -625,9 +982,20 @@ class WorkerPool:
         with self.lock:
             self.active_requests[request_id] = True
         
-        # Submit to worker queue
-        self.request_queue.put(gen_request)
-        logger.info(f"Submitted streaming request {request_id} to worker pool")
+        # Submit to worker queue - use batching if enabled
+        if self.batch_enabled:
+            batch = self.batch_manager.add_request(gen_request)
+            if batch:
+                # Batch is ready, submit it
+                self.request_queue.put(batch)
+                logger.info(f"Submitted batch {batch.batch_id} with {len(batch.prompts)} prompts (including {request_id})")
+            else:
+                # Request added to pending batch
+                logger.debug(f"Added streaming request {request_id} to pending batch")
+        else:
+            # Submit individual request
+            self.request_queue.put(gen_request)
+            logger.info(f"Submitted individual streaming request {request_id} to worker pool")
         
         try:
             # Stream results
@@ -669,9 +1037,20 @@ class WorkerPool:
         with self.lock:
             self.active_requests[request_id] = True
         
-        # Submit to worker queue
-        self.request_queue.put(gen_request)
-        logger.info(f"Submitted non-streaming request {request_id} to worker pool")
+        # Submit to worker queue - use batching if enabled
+        if self.batch_enabled:
+            batch = self.batch_manager.add_request(gen_request)
+            if batch:
+                # Batch is ready, submit it
+                self.request_queue.put(batch)
+                logger.info(f"Submitted batch {batch.batch_id} with {len(batch.prompts)} prompts (including {request_id})")
+            else:
+                # Request added to pending batch
+                logger.debug(f"Added non-streaming request {request_id} to pending batch")
+        else:
+            # Submit individual request
+            self.request_queue.put(gen_request)
+            logger.info(f"Submitted individual non-streaming request {request_id} to worker pool")
         
         try:
             # Wait for completion
@@ -738,6 +1117,13 @@ class WorkerPool:
         """Shutdown the worker pool"""
         logger.info("Shutting down worker pool...")
         
+        # Flush any pending batches before shutdown
+        if self.batch_enabled:
+            pending_batches = self.batch_manager.flush_pending_batches()
+            for batch in pending_batches:
+                self.request_queue.put(batch)
+                logger.info(f"Flushed pending batch {batch.batch_id} with {len(batch.prompts)} prompts")
+        
         # Signal shutdown
         self.shutdown_event.set()
         
@@ -762,11 +1148,32 @@ def get_worker_pool():
     return worker_pool
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application lifespan events"""
+    # Startup
+    logger.info("Starting CogView4 API server...")
+    try:
+        get_worker_pool()
+        logger.info("Worker pool initialized successfully!")
+    except Exception as e:
+        logger.error(f"Failed to initialize worker pool: {e}")
+    
+    yield  # Application is running
+    
+    # Shutdown
+    logger.info("Shutting down CogView4 API server...")
+    if worker_pool:
+        worker_pool.shutdown()
+        logger.info("Worker pool shut down successfully")
+
+
 # FastAPI app
 app = FastAPI(
     title="CogView4 Image Generation API",
     description="OpenAI-compatible image generation API with persistent worker pool using CogView4",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware - Updated for better cross-origin support
@@ -778,26 +1185,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
     expose_headers=["*"],  # Expose all headers to client
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the worker pool on startup"""
-    logger.info("Starting CogView4 API server...")
-    try:
-        get_worker_pool()
-        logger.info("Worker pool initialized successfully!")
-    except Exception as e:
-        logger.error(f"Failed to initialize worker pool: {e}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up on shutdown"""
-    logger.info("Shutting down CogView4 API server...")
-    if worker_pool:
-        worker_pool.shutdown()
-        logger.info("Worker pool shut down successfully")
 
 
 async def generate_sse_stream(request_data: ImageGenerationRequest):

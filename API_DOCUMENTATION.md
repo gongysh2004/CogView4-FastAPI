@@ -3,11 +3,13 @@
   - [1.2. Architecture Overview](#12-architecture-overview)
   - [1.3. Core Components](#13-core-components)
     - [1.3.1. FastAPI Application Layer](#131-fastapi-application-layer)
-    - [1.3.2. WorkerPool Architecture](#132-workerpool-architecture)
-    - [1.3.3. Worker Process Architecture](#133-worker-process-architecture)
+    - [1.3.2. Prompt Batching System](#132-prompt-batching-system)
+    - [1.3.3. WorkerPool Architecture](#133-workerpool-architecture)
+    - [1.3.4. Worker Process Architecture](#134-worker-process-architecture)
   - [1.4. Request Flow Diagrams](#14-request-flow-diagrams)
-    - [1.4.1. Streaming Request Flow](#141-streaming-request-flow)
-    - [1.4.2. Non-Streaming Request Flow](#142-non-streaming-request-flow)
+    - [1.4.1. Prompt Batching Flow](#141-prompt-batching-flow)
+    - [1.4.2. Streaming Request Flow](#142-streaming-request-flow)
+    - [1.4.3. Non-Streaming Request Flow](#143-non-streaming-request-flow)
   - [1.5. Chunking System](#15-chunking-system)
     - [1.5.1. Server-Side Chunking](#151-server-side-chunking)
     - [1.5.2. Client-Side Assembly](#152-client-side-assembly)
@@ -15,9 +17,10 @@
     - [1.6.1. Request Models](#161-request-models)
     - [1.6.2. Streaming Data Models](#162-streaming-data-models)
   - [1.7. Performance Optimizations](#17-performance-optimizations)
-    - [1.7.1. Model Loading Strategy](#171-model-loading-strategy)
-    - [1.7.2. Memory Management](#172-memory-management)
-    - [1.7.3. Concurrency Model](#173-concurrency-model)
+    - [1.7.1. Intelligent Prompt Batching](#171-intelligent-prompt-batching)
+    - [1.7.2. Model Loading Strategy](#172-model-loading-strategy)
+    - [1.7.3. Memory Management](#173-memory-management)
+    - [1.7.4. Concurrency Model](#174-concurrency-model)
   - [1.8. Health Monitoring](#18-health-monitoring)
     - [1.8.1. Model Loading Status](#181-model-loading-status)
     - [1.8.2. Health Endpoint Response](#182-health-endpoint-response)
@@ -39,7 +42,7 @@
 
 ## 1.1. Overview
 
-The CogView4 Image Generation API Server is a high-performance, OpenAI-compatible image generation service built with FastAPI. It implements a persistent worker pool architecture with multiprocessing for true concurrent image generation, streaming capabilities, and intelligent chunking for large images.
+The CogView4 Image Generation API Server is a high-performance, OpenAI-compatible image generation service built with FastAPI. It implements a persistent worker pool architecture with multiprocessing for true concurrent image generation, **intelligent prompt batching for GPU efficiency**, streaming capabilities, and intelligent chunking for large images.
 
 ## 1.2. Architecture Overview
 
@@ -55,6 +58,7 @@ graph TB
         ROUTES[API Routes]
         HEALTH[Health Check]
         SSE[SSE Streaming]
+        BM[BatchManager]
     end
     
     subgraph "Worker Pool"
@@ -80,7 +84,8 @@ graph TB
     WC -->|HTTP Requests| MAIN
     API_CLIENT -->|HTTP Requests| MAIN
     MAIN --> ROUTES
-    ROUTES --> WP
+    ROUTES --> BM
+    BM --> WP
     WP --> RQ
     RQ --> W1
     RQ --> W2
@@ -114,8 +119,60 @@ graph TB
 - **API Routes**: OpenAI-compatible endpoints (`/v1/images/generations`)
 - **Health Monitoring**: Real-time status of worker pool and model loading
 - **SSE Streaming**: Server-Sent Events for real-time progress updates
+- **BatchManager**: Intelligent batching of compatible requests for GPU efficiency
 
-### 1.3.2. WorkerPool Architecture
+### 1.3.2. Prompt Batching System
+
+```mermaid
+classDiagram
+    class BatchManager {
+        +batch_timeout: float
+        +max_batch_size: int
+        +pending_requests: Dict
+        +batch_timers: Dict
+        +add_request(request)
+        +get_batch_key(request)
+        +check_timeouts()
+        +flush_pending_batches()
+    }
+    
+    class BatchedGenerationRequest {
+        +batch_id: str
+        +prompts: List[str]
+        +negative_prompts: List[Optional[str]]
+        +request_ids: List[str]
+        +num_images: int
+        +width: int
+        +height: int
+        +guidance_scale: float
+        +num_inference_steps: int
+        +stream: bool
+    }
+    
+    class GenerationRequest {
+        +request_id: str
+        +prompt: str
+        +negative_prompt: Optional[str]
+        +width: int
+        +height: int
+        +guidance_scale: float
+        +num_inference_steps: int
+        +num_images: int
+        +stream: bool
+    }
+    
+    BatchManager --> GenerationRequest : receives
+    BatchManager --> BatchedGenerationRequest : creates
+```
+
+**Batching Logic:**
+- Requests are grouped by compatible parameters: `(width, height, guidance_scale, num_inference_steps, stream, num_images)`
+- Maximum batch size: 8 requests (configurable)
+- Batch timeout: 0.5 seconds (configurable)
+- Each request maintains its individual prompt and negative_prompt pairing
+- Results are properly distributed back to individual requests
+
+### 1.3.3. WorkerPool Architecture
 
 ```mermaid
 classDiagram
@@ -125,6 +182,8 @@ classDiagram
         +request_queue: Queue
         +result_queue: Queue
         +worker_model_loaded: Dict
+        +batch_manager: BatchManager
+        +batch_enabled: bool
         +submit_streaming_request()
         +submit_non_streaming_request()
         +all_models_loaded()
@@ -150,19 +209,70 @@ classDiagram
     
     WorkerPool --> GenerationRequest : creates
     WorkerPool --> GenerationResult : receives
+    WorkerPool --> BatchManager : uses
 ```
 
-### 1.3.3. Worker Process Architecture
+### 1.3.4. Worker Process Architecture
 
 Each worker process:
 - **Loads model once**: CogView4 pipeline with quantization
 - **Handles multiple requests**: Uses `from_pipe()` for memory efficiency
 - **GPU assignment**: Distributed across available GPUs
 - **Independent operation**: No shared state between workers
+- **Batch processing**: Can handle both individual and batched requests
+- **Negative prompt handling**: Automatically converts `None` values to empty strings
 
 ## 1.4. Request Flow Diagrams
 
-### 1.4.1. Streaming Request Flow
+### 1.4.1. Prompt Batching Flow
+
+```mermaid
+sequenceDiagram
+    participant C1 as Client 1
+    participant C2 as Client 2
+    participant C3 as Client 3
+    participant F as FastAPI
+    participant BM as BatchManager
+    participant WP as WorkerPool
+    participant W as Worker
+    participant M as Model
+    
+    Note over C1,C3: Multiple clients send compatible requests
+    C1->>F: POST prompt="sunset", size=1024x1024, steps=50
+    C2->>F: POST prompt="forest", size=1024x1024, steps=50
+    C3->>F: POST prompt="mountain", size=1024x1024, steps=50
+    
+    F->>BM: Add request 1 to batch
+    F->>BM: Add request 2 to batch
+    F->>BM: Add request 3 to batch
+    
+    Note over BM: Batch ready (size=3 or timeout=0.5s)
+    BM->>WP: Submit BatchedGenerationRequest
+    
+    WP->>W: Send batch to worker
+    W->>W: Preprocess negative_prompts (None -> "")
+    W->>M: Generate with prompts=["sunset","forest","mountain"]
+    
+    activate M
+    loop For each inference step
+        M->>W: Step callback with all images
+        W->>W: Distribute images to request IDs
+        W->>WP: Send individual results
+        WP->>F: Stream to respective clients
+        F->>C1: SSE: sunset image step
+        F->>C2: SSE: forest image step  
+        F->>C3: SSE: mountain image step
+    end
+    deactivate M
+    
+    W->>WP: Batch completion
+    WP->>F: Individual completions
+    F->>C1: Complete
+    F->>C2: Complete
+    F->>C3: Complete
+```
+
+### 1.4.2. Streaming Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -204,7 +314,7 @@ sequenceDiagram
     deactivate W
 ```
 
-### 1.4.2. Non-Streaming Request Flow
+### 1.4.3. Non-Streaming Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -303,7 +413,44 @@ class StreamingImageData(BaseModel):
 
 ## 1.7. Performance Optimizations
 
-### 1.7.1. Model Loading Strategy
+### 1.7.1. Intelligent Prompt Batching
+
+```mermaid
+graph TD
+    REQ1[Request 1: "sunset"] --> BM[BatchManager]
+    REQ2[Request 2: "forest"] --> BM
+    REQ3[Request 3: "mountain"] --> BM
+    
+    BM --> CHECK{Compatible?}
+    CHECK -->|Yes| BATCH[Create Batch]
+    CHECK -->|No| SEPARATE[Separate Processing]
+    
+    BATCH --> SINGLE[Single GPU Inference]
+    SINGLE --> DISTRIBUTE[Distribute Results]
+    
+    DISTRIBUTE --> OUT1[Client 1: sunset images]
+    DISTRIBUTE --> OUT2[Client 2: forest images]
+    DISTRIBUTE --> OUT3[Client 3: mountain images]
+    
+    SEPARATE --> IND1[Individual Processing]
+    SEPARATE --> IND2[Individual Processing]
+```
+
+**Batching Benefits:**
+- **GPU Efficiency**: Single inference call for multiple prompts reduces GPU overhead
+- **Memory Optimization**: Shared model execution for compatible requests
+- **Throughput Increase**: Up to 3-5x improvement for batched requests
+- **Fair Processing**: Individual prompt-negative_prompt pairing maintained
+- **Timeout Protection**: 0.5s maximum wait ensures responsiveness
+
+**Batch Compatibility Criteria:**
+- Same image dimensions (width × height)
+- Same guidance scale
+- Same number of inference steps
+- Same streaming preference
+- Same number of images per prompt
+
+### 1.7.2. Model Loading Strategy
 
 ```mermaid
 graph TD
@@ -312,21 +459,23 @@ graph TD
     LOAD --> QUANT[Apply INT8 Quantization]
     QUANT --> READY[Worker Ready]
     
-    READY --> REQ[Receive Request]
+    READY --> REQ[Receive Request/Batch]
     REQ --> PIPE[Create from_pipe instance]
     PIPE --> GEN[Generate Images]
     GEN --> CLEANUP[Cleanup Pipeline Instance]
     CLEANUP --> REQ
 ```
 
-### 1.7.2. Memory Management
+### 1.7.3. Memory Management
 
 - **Quantization**: INT8 weight-only quantization for text encoder and transformer
 - **from_pipe()**: Memory-efficient pipeline instances per request
 - **GPU Distribution**: Workers distributed across available GPUs
 - **Automatic Cleanup**: Pipeline instances cleaned after each request
+- **Batch Processing**: Shared memory usage for compatible requests
+- **Negative Prompt Handling**: Automatic None-to-empty-string conversion
 
-### 1.7.3. Concurrency Model
+### 1.7.4. Concurrency Model
 
 ```mermaid
 graph LR
@@ -439,10 +588,24 @@ LOG_FILE=cogview4_api.log
 # Worker configuration
 NUM_WORKER_PROCESSES=4
 
+# Prompt batching configuration
+ENABLE_PROMPT_BATCHING=true
+
 # CUDA configuration
 CUDA_LAUNCH_BLOCKING=1
 CUDA_DEVICE_ORDER=PCI_BUS_ID
 ```
+
+**Configuration Details:**
+
+- **`ENABLE_PROMPT_BATCHING`**: Enable/disable intelligent prompt batching (default: `true`)
+  - `true`: Requests with compatible parameters are batched together
+  - `false`: All requests processed individually
+- **`NUM_WORKER_PROCESSES`**: Number of worker processes (default: `4`)
+  - Recommend 1-2 workers per GPU
+  - Each worker loads ~12GB model into VRAM
+- **`LOG_LEVEL`**: Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
+- **`LOG_FILE`**: Log file path for persistent logging
 
 ### 1.11.3. Scaling Strategies
 
