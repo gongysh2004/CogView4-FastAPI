@@ -113,6 +113,9 @@ class StreamingImageData(BaseModel):
     chunk_id: Optional[str] = None
     chunk_index: Optional[int] = None
     total_chunks: Optional[int] = None
+    # Multiple image support
+    image_index: Optional[int] = None
+    total_images: Optional[int] = None
 
 
 def _parse_size(size_str: str) -> tuple:
@@ -278,7 +281,7 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                 except Exception as cleanup_error:
                     worker_logger.warning(f"Worker {worker_id}: Error during cleanup: {cleanup_error}")
         
-        def send_chunked_image(image_b64: str, step_index: int, is_final_step: bool, max_chunk_size: int = 400 * 1024):
+        def send_chunked_image(image_b64: str, step_index: int, is_final_step: bool, image_idx: int = 0, max_chunk_size: int = 400 * 1024):
             """Send large image data in chunks via multiple SSE events"""
             if len(image_b64) <= max_chunk_size:
                 # Small enough to send in one piece
@@ -291,17 +294,19 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                         'image': image_b64,
                         'is_final': is_final_step,
                         'timestamp': time.time(),
-                        'is_chunked': False
+                        'is_chunked': False,
+                        'image_index': image_idx,
+                        'total_images': gen_request.num_images
                     }
                 )
                 result_queue.put(result)
-                worker_logger.debug(f"Worker {worker_id}: Sent single image for step {step_index}")
+                worker_logger.debug(f"Worker {worker_id}: Sent single image for step {step_index}, image {image_idx + 1}/{gen_request.num_images}")
             else:
                 # Need to chunk the image
-                chunk_id = f"{gen_request.request_id}_step_{step_index}_{int(time.time() * 1000)}"
+                chunk_id = f"{gen_request.request_id}_step_{step_index}_img_{image_idx}_{int(time.time() * 1000)}"
                 total_chunks = (len(image_b64) + max_chunk_size - 1) // max_chunk_size
                 
-                worker_logger.debug(f"Worker {worker_id}: Chunking image for step {step_index} into {total_chunks} chunks")
+                worker_logger.debug(f"Worker {worker_id}: Chunking image {image_idx + 1}/{gen_request.num_images} for step {step_index} into {total_chunks} chunks")
                 
                 for chunk_index in range(total_chunks):
                     start_pos = chunk_index * max_chunk_size
@@ -320,12 +325,14 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                             'is_chunked': True,
                             'chunk_id': chunk_id,
                             'chunk_index': chunk_index,
-                            'total_chunks': total_chunks
+                            'total_chunks': total_chunks,
+                            'image_index': image_idx,
+                            'total_images': gen_request.num_images
                         }
                     )
                     result_queue.put(result)
                     
-                worker_logger.debug(f"Worker {worker_id}: Sent {total_chunks} chunks for step {step_index}")
+                worker_logger.debug(f"Worker {worker_id}: Sent {total_chunks} chunks for step {step_index}, image {image_idx + 1}/{gen_request.num_images}")
 
         def step_callback(pipeline_instance, step_index, timestep, callback_kwargs):
             """Callback function that runs for each denoising step"""
@@ -345,30 +352,31 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                                 decoded_image = pipeline_instance.image_processor.postprocess(decoded_image, output_type="pil")
                                 
                                 if isinstance(decoded_image, list) and len(decoded_image) > 0:
-                                    image = decoded_image[0]
+                                    # Process ALL images, not just the first one
                                     is_final_step = step_index == gen_request.num_inference_steps - 1
                                     
-                                    # Keep full resolution - no resizing
-                                    # Convert to base64 with appropriate format
-                                    buffer = io.BytesIO()
-                                    if is_final_step:
-                                        # Use PNG for final images (highest quality)
-                                        image.save(buffer, format='PNG', optimize=True)
-                                    else:
-                                        # Use high-quality JPEG for intermediate steps
-                                        if image.mode in ('RGBA', 'LA', 'P'):
-                                            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
-                                            if image.mode == 'P':
-                                                image = image.convert('RGBA')
-                                            rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                                            image = rgb_image
-                                        image.save(buffer, format='JPEG', quality=90, optimize=True)
-                                    
-                                    buffer.seek(0)
-                                    image_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                                    
-                                    # Send via chunking system
-                                    send_chunked_image(image_b64, step_index, is_final_step)
+                                    for image_idx, image in enumerate(decoded_image):
+                                        # Keep full resolution - no resizing
+                                        # Convert to base64 with appropriate format
+                                        buffer = io.BytesIO()
+                                        if is_final_step:
+                                            # Use PNG for final images (highest quality)
+                                            image.save(buffer, format='PNG', optimize=True)
+                                        else:
+                                            # Use high-quality JPEG for intermediate steps
+                                            if image.mode in ('RGBA', 'LA', 'P'):
+                                                rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+                                                if image.mode == 'P':
+                                                    image = image.convert('RGBA')
+                                                rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                                                image = rgb_image
+                                            image.save(buffer, format='JPEG', quality=90, optimize=True)
+                                        
+                                        buffer.seek(0)
+                                        image_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                                        
+                                        # Send via chunking system with image index
+                                        send_chunked_image(image_b64, step_index, is_final_step, image_idx)
                                     
                         except Exception as decode_error:
                             worker_logger.warning(f"Worker {worker_id}: Error decoding step {step_index}: {decode_error}")
@@ -761,13 +769,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - Updated for better cross-origin support
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Set to False when using allow_origins=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly include OPTIONS
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers to client
 )
 
 
@@ -822,7 +831,9 @@ async def generate_sse_stream(request_data: ImageGenerationRequest):
                 is_chunked=result.get('is_chunked', False),
                 chunk_id=result.get('chunk_id'),
                 chunk_index=result.get('chunk_index'),
-                total_chunks=result.get('total_chunks')
+                total_chunks=result.get('total_chunks'),
+                image_index=result.get('image_index'),
+                total_images=result.get('total_images')
             )
             
             json_data = stream_data.json()
@@ -853,6 +864,12 @@ async def generate_sse_stream(request_data: ImageGenerationRequest):
         yield "data: [DONE]\n\n"
 
 
+@app.options("/v1/images/generations")
+async def preflight_images():
+    """Handle preflight requests for image generation endpoint"""
+    return {"message": "OK"}
+
+
 @app.post("/v1/images/generations")
 async def create_image(request: ImageGenerationRequest):
     """Create image(s) from text prompt using worker pool"""
@@ -869,8 +886,6 @@ async def create_image(request: ImageGenerationRequest):
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
             }
         )
     else:
@@ -913,6 +928,12 @@ async def create_image(request: ImageGenerationRequest):
             request_duration = time.time() - request_start_time
             logger.error(f"Request failed after {request_duration:.2f}s: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@app.options("/v1/models")
+async def preflight_models():
+    """Handle preflight requests for models endpoint"""
+    return {"message": "OK"}
 
 
 @app.get("/v1/models")

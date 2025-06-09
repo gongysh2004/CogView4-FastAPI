@@ -145,6 +145,45 @@
             text-align: center;
         }
         
+        .image-item.intermediate-image {
+            background: #f0f8ff;
+            border: 2px dashed #4CAF50 !important;
+            opacity: 0.8;
+            position: relative;
+        }
+        
+        .image-item.intermediate-image::before {
+            content: "🔄 LIVE";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #4CAF50;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .image-item.final-image {
+            background: #f8fff8;
+            border: 2px solid #4CAF50 !important;
+            position: relative;
+        }
+        
+        .image-item.final-image::before {
+            content: "✓ FINAL";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #2e7d32;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
         .image-item img {
             max-width: 100%;
             height: auto;
@@ -446,7 +485,7 @@
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 
-                let intermediateCount = 0;
+                let intermediateCounters = {}; // Track counters per image
                 let buffer = ''; // Buffer to accumulate incomplete chunks
                 
                 // Storage for assembling chunked images
@@ -472,7 +511,8 @@
                             
                             if (data === '[DONE]') {
                                 updateProgress(100, 'Generation complete!');
-                                showSuccess('Streaming generation completed successfully!');
+                                const finalImages = document.querySelectorAll('.final-image').length;
+                                showSuccess(`Streaming generation completed successfully! Generated ${finalImages} image(s).`);
                                 setTimeout(() => {
                                     progressContainer.style.display = 'none';
                                     streamingContainer.style.display = 'none';
@@ -510,7 +550,9 @@
                                                 total_steps: result.total_steps,
                                                 progress: result.progress,
                                                 is_final: result.is_final,
-                                                timestamp: result.timestamp
+                                                timestamp: result.timestamp,
+                                                image_index: result.image_index,
+                                                total_images: result.total_images
                                             }
                                         };
                                     }
@@ -519,8 +561,9 @@
                                     chunkStorage[chunkId].chunks[chunkIndex] = result.image;
                                     
                                     // Update streaming info with chunk progress
+                                    const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}</div>
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
                                         <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
                                         <div><strong>Chunks:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
                                         <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
@@ -536,8 +579,14 @@
                                             completeImage += chunkStorage[chunkId].chunks[i];
                                         }
                                         
+                                        // Initialize counter for this image if needed
+                                        const imageIndex = chunkStorage[chunkId].metadata.image_index;
+                                        if (!intermediateCounters[imageIndex]) {
+                                            intermediateCounters[imageIndex] = 0;
+                                        }
+                                        
                                         // Process the complete image
-                                        intermediateCount = processCompleteImage(completeImage, chunkStorage[chunkId].metadata, intermediateCount);
+                                        intermediateCounters[imageIndex] = processCompleteImage(completeImage, chunkStorage[chunkId].metadata, intermediateCounters[imageIndex]);
                                         
                                         // Clean up storage
                                         delete chunkStorage[chunkId];
@@ -546,8 +595,9 @@
                                     }
                                 } else {
                                     // Handle non-chunked complete image
+                                    const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}</div>
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
                                         <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
                                         <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
                                         <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
@@ -555,7 +605,13 @@
                                     `;
                                     
                                     if (result.image) {
-                                        intermediateCount = processCompleteImage(result.image, result, intermediateCount);
+                                        // Initialize counter for this image if needed
+                                        const imageIndex = result.image_index || 0;
+                                        if (!intermediateCounters[imageIndex]) {
+                                            intermediateCounters[imageIndex] = 0;
+                                        }
+                                        
+                                        intermediateCounters[imageIndex] = processCompleteImage(result.image, result, intermediateCounters[imageIndex]);
                                     }
                                 }
                                 
@@ -577,26 +633,31 @@
         
         // Process complete image (chunked or non-chunked)
         function processCompleteImage(imageData, metadata, intermediateCount) {
+            const imageIndex = metadata.image_index || 0;
+            const totalImages = metadata.total_images || 1;
+            
             if (!metadata.is_final && metadata.step < metadata.total_steps) {
-                // Intermediate image - show with reduced opacity
-                if (intermediateCount % 2 === 0) { // Show every other intermediate to avoid too much flickering
-                    const existingIntermediate = document.querySelector('.intermediate-image');
+                // Intermediate image - show with reduced opacity for each image
+                if (intermediateCount % 3 === 0) { // Show every third intermediate to reduce clutter
+                    const existingIntermediate = document.querySelector(`.intermediate-image-${imageIndex}`);
                     if (existingIntermediate) {
                         existingIntermediate.remove();
                     }
                     
                     const tempDiv = document.createElement('div');
-                    tempDiv.className = 'image-item intermediate-image';
-                    tempDiv.style.opacity = '0.7';
-                    tempDiv.style.border = '2px dashed #4CAF50';
+                    tempDiv.className = `image-item intermediate-image intermediate-image-${imageIndex}`;
                     
                     const img = document.createElement('img');
                     img.src = `data:image/png;base64,${imageData}`;
-                    img.alt = 'Intermediate Image';
+                    img.alt = `Intermediate Image ${imageIndex + 1}`;
                     
                     const info = document.createElement('div');
                     info.className = 'image-info';
-                    info.textContent = `Intermediate - Step ${metadata.step} (Full Quality)`;
+                    if (totalImages > 1) {
+                        info.textContent = `Image ${imageIndex + 1} - Step ${metadata.step}/${metadata.total_steps}`;
+                    } else {
+                        info.textContent = `Step ${metadata.step}/${metadata.total_steps}`;
+                    }
                     
                     tempDiv.appendChild(img);
                     tempDiv.appendChild(info);
@@ -604,16 +665,34 @@
                 }
                 intermediateCount++;
             } else {
-                // Final image
-                console.log('Adding final image');
+                // Final image - add with image index tracking
+                console.log(`Adding final image ${imageIndex + 1}/${totalImages}`);
                 
-                // Remove any intermediate images
-                const intermediate = document.querySelector('.intermediate-image');
+                // Add final image with unique identifier
+                const finalImageDiv = document.createElement('div');
+                finalImageDiv.className = `image-item final-image final-image-${imageIndex}`;
+                
+                const img = document.createElement('img');
+                img.src = `data:image/png;base64,${imageData}`;
+                img.alt = `Final Generated Image ${imageIndex + 1}`;
+                
+                const info = document.createElement('div');
+                info.className = 'image-info';
+                if (totalImages > 1) {
+                    info.textContent = `Final Image ${imageIndex + 1} of ${totalImages}`;
+                } else {
+                    info.textContent = 'Final Image';
+                }
+                
+                finalImageDiv.appendChild(img);
+                finalImageDiv.appendChild(info);
+                imageGrid.appendChild(finalImageDiv);
+                
+                // Remove corresponding intermediate image when final image arrives
+                const intermediate = document.querySelector(`.intermediate-image-${imageIndex}`);
                 if (intermediate) {
                     intermediate.remove();
                 }
-                
-                addImageToGrid(imageData, `Final Image - Step ${metadata.step} (Full Quality)`);
             }
             return intermediateCount;
         }
