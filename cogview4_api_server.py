@@ -49,9 +49,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 NUM_WORKER_PROCESSES = int(os.getenv('NUM_WORKER_PROCESSES', '2'))
 
+# VRAM protection: Maximum total pixels per request/batch to prevent GPU memory issues
+MAX_TOTAL_PIXELS = int(os.getenv('MAX_TOTAL_PIXELS', str(1024 * 1024 * 4)))  # 4 megapixels default
+
 logger.info(f"Starting CogView4 API with log level: {log_level}")
 logger.info(f"Log file: {log_file}")
 logger.info(f"Number of worker processes: {NUM_WORKER_PROCESSES}")
+logger.info(f"VRAM protection: Maximum total pixels per request: {MAX_TOTAL_PIXELS:,}")
 
 @dataclass
 class GenerationRequest:
@@ -304,7 +308,7 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
                 try:
                     with torch.cuda.device(gpu_id):
                         del active_pipelines[request_id]
-                        # torch.cuda.empty_cache()
+                        torch.cuda.empty_cache()
                     worker_logger.debug(f"Worker {worker_id}: Cleaned up pipeline for request {request_id}")
                 except Exception as cleanup_error:
                     worker_logger.warning(f"Worker {worker_id}: Error during cleanup: {cleanup_error}")
@@ -754,7 +758,7 @@ def worker_process(worker_id: int, model_path: str, request_queue: mp.Queue, res
 class BatchManager:
     """Manages batching of compatible requests"""
     
-    def __init__(self, batch_timeout: float = 0.5, max_batch_size: int = 8):
+    def __init__(self, batch_timeout: float = 0.5, max_batch_size: int = 3):
         self.batch_timeout = batch_timeout  # Time to wait for batching
         self.max_batch_size = max_batch_size  # Max prompts per batch
         self.pending_requests: Dict[tuple, List[GenerationRequest]] = {}  # batch_key -> requests
@@ -781,6 +785,25 @@ class BatchManager:
             if batch_key not in self.pending_requests:
                 self.pending_requests[batch_key] = []
                 self.batch_timers[batch_key] = time.time()
+            
+            # VRAM validation: Check if adding this request would exceed limits
+            current_batch = self.pending_requests[batch_key]
+            total_requests_after_add = len(current_batch) + 1
+            pixels_per_request = request.width * request.height * request.num_images
+            total_pixels = pixels_per_request * total_requests_after_add
+            max_pixels = MAX_TOTAL_PIXELS  # Use configurable limit
+            
+            # If adding this request would exceed VRAM limits, flush current batch first
+            if total_pixels >= max_pixels and current_batch:
+                # Create batch with current requests first
+                batch = self._create_batch(batch_key, current_batch)
+                
+                # Clear current batch and start new one with this request
+                self.pending_requests[batch_key] = [request]
+                self.batch_timers[batch_key] = time.time()
+                
+                logger.debug(f"BatchManager: Flushed batch due to VRAM limit ({total_pixels:,} > {max_pixels:,})")
+                return batch
             
             # Add request to batch
             self.pending_requests[batch_key].append(request)
@@ -1263,6 +1286,19 @@ async def create_image(request: ImageGenerationRequest):
     
     request_start_time = time.time()
     logger.info(f"Received image generation request: prompt='{request.prompt[:50]}...', stream={request.stream}, steps={request.num_inference_steps}")
+    
+    # VRAM validation: Check total pixel count to prevent GPU memory issues
+    width, height = _parse_size(request.size)
+    total_pixels = width * height * request.n
+    max_pixels = MAX_TOTAL_PIXELS  # Use configurable limit
+    
+    if total_pixels >= max_pixels:
+        error_msg = f"Request exceeds VRAM limits: {total_pixels:,} pixels (max: {max_pixels:,}). " \
+                   f"Reduce image size ({width}x{height}) or count (n={request.n})"
+        logger.warning(f"Request rejected due to VRAM limits: {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
+    
+    logger.debug(f"VRAM validation passed: {total_pixels:,} pixels (limit: {max_pixels:,})")
     
     if request.stream:
         # Return SSE stream

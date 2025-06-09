@@ -214,6 +214,14 @@
             margin: 15px 0;
         }
         
+        .validation-message {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
         .success {
             color: #2e7d32;
             background: #e8f5e8;
@@ -339,6 +347,54 @@
             document.getElementById('stepsValue').textContent = this.value;
         });
         
+        // Size and number validation
+        const MAX_TOTAL_PIXELS = 1024 * 1024 * 4; // 4,194,304 pixels
+        
+        function parseSizeString(sizeStr) {
+            const [width, height] = sizeStr.split('x').map(Number);
+            return width * height;
+        }
+        
+        function validateSizeAndNumber() {
+            const sizeStr = document.getElementById('size').value;
+            const numImages = parseInt(document.getElementById('numImages').value);
+            
+            const pixelsPerImage = parseSizeString(sizeStr);
+            const totalPixels = pixelsPerImage * numImages;
+            
+            const isValid = totalPixels < MAX_TOTAL_PIXELS;
+            const generateBtn = document.getElementById('generateBtn');
+            
+            // Clear any existing validation message
+            const existingValidation = document.querySelector('.validation-message');
+            if (existingValidation) {
+                existingValidation.remove();
+            }
+            
+            if (!isValid) {
+                // Add validation error message
+                const validationDiv = document.createElement('div');
+                validationDiv.className = 'validation-message error';
+                validationDiv.innerHTML = `❌ Total pixel count (${totalPixels.toLocaleString()}) exceeds maximum allowed (${MAX_TOTAL_PIXELS.toLocaleString()}). Please reduce image size or number of images.`;
+                
+                // Insert after the numImages form group
+                const numImagesGroup = document.getElementById('numImages').closest('.form-group');
+                numImagesGroup.parentNode.insertBefore(validationDiv, numImagesGroup.nextSibling);
+                
+                generateBtn.disabled = true;
+                generateBtn.textContent = '❌ Configuration Invalid';
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🚀 Generate Images';
+            }
+            
+            return isValid;
+        }
+        
+        // Add event listeners for real-time validation
+        document.getElementById('size').addEventListener('change', validateSizeAndNumber);
+        document.getElementById('numImages').addEventListener('change', validateSizeAndNumber);
+        
         // Check API health on load
         async function checkApiHealth() {
             try {
@@ -395,6 +451,12 @@
         // Handle form submission
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            // Validate size and number before proceeding
+            if (!validateSizeAndNumber()) {
+                showError('Please fix the configuration errors before generating images.');
+                return;
+            }
             
             clearMessages();
             imageGrid.innerHTML = '';
@@ -700,6 +762,9 @@
         // Initialize
         checkApiHealth();
         setInterval(checkApiHealth, 30000); // Check every 30 seconds
+        
+        // Run initial validation
+        validateSizeAndNumber();
     </script>
 </body>
 </html> 
