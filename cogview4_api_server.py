@@ -57,6 +57,39 @@ logger.info(f"Log file: {log_file}")
 logger.info(f"Number of worker processes: {NUM_WORKER_PROCESSES}")
 logger.info(f"VRAM protection: Maximum total pixels per request: {MAX_TOTAL_PIXELS:,}")
 
+def display_ready_banner():
+    """Display a prominent banner when all workers are ready"""
+    banner_lines = [
+        "=" * 80,
+        "🚀 COGVIEW4 API SERVER READY! 🚀",
+        "=" * 80,
+        f"✅ All {NUM_WORKER_PROCESSES} worker processes have loaded models successfully",
+        "✅ Server is ready to accept image generation requests",
+        "✅ OpenAI-compatible API endpoints are active",
+        "",
+        "📋 Available Endpoints:",
+        "   • POST /v1/images/generations  - Generate images",
+        "   • GET  /v1/models             - List models", 
+        "   • GET  /health                - Health check",
+        "   • GET  /status                - Detailed status",
+        "   • GET  /client.html           - Web client",
+        "",
+        "🌐 Server running on: http://0.0.0.0:8000",
+        "📚 Documentation: http://0.0.0.0:8000/docs",
+        "=" * 80
+    ]
+    
+    # Print banner to console
+    print("\n")
+    for line in banner_lines:
+        print(line)
+    print("\n")
+    
+    # Also log it
+    logger.info("🚀 CogView4 API Server is fully ready - all workers loaded!")
+    logger.info(f"✅ {NUM_WORKER_PROCESSES} workers ready to process requests")
+    # Banner displayed when all worker processes have successfully loaded their models
+
 @dataclass
 class GenerationRequest:
     """Request data structure for worker processes"""
@@ -943,6 +976,12 @@ class WorkerPool:
             logger.info("Prompt batching enabled - timeout checker started")
         else:
             logger.info("Prompt batching disabled")
+            
+        # Add banner tracking and readiness monitoring
+        self.ready_banner_shown = False  # Track if banner has been displayed
+        self.readiness_thread = threading.Thread(target=self._monitor_worker_readiness, daemon=True)
+        self.readiness_thread.start()
+        logger.info("Worker readiness monitor started")
     
     def _batch_timeout_checker(self):
         """Background thread to check for batch timeouts"""
@@ -974,6 +1013,10 @@ class WorkerPool:
         
         logger.debug(f"Model loading status: {loaded_workers}/{total_workers} workers have loaded models")
         return loaded_workers == total_workers and total_workers > 0
+    
+    def is_ready(self) -> bool:
+        """Check if the worker pool is ready (all models loaded and banner shown)"""
+        return self.all_models_loaded() and self.ready_banner_shown
     
     async def submit_streaming_request(
         self,
@@ -1159,6 +1202,36 @@ class WorkerPool:
                 worker.join()
         
         logger.info("Worker pool shutdown complete")
+
+    def _monitor_worker_readiness(self):
+        """Background thread to monitor worker readiness"""
+        logger.info("Starting worker readiness monitoring...")
+        last_logged_count = 0
+        
+        while not self.shutdown_event.is_set() and not self.ready_banner_shown:
+            try:
+                if self.all_models_loaded():
+                    # All workers are ready!
+                    if not self.ready_banner_shown:
+                        self.ready_banner_shown = True
+                        logger.info("All workers have loaded models - displaying ready banner")
+                        display_ready_banner()
+                        break
+                else:
+                    # Log progress periodically
+                    loaded_count = sum(1 for loaded in self.worker_model_loaded.values() if loaded)
+                    if loaded_count != last_logged_count and loaded_count > 0:
+                        logger.info(f"Worker loading progress: {loaded_count}/{self.num_workers} workers ready")
+                        last_logged_count = loaded_count
+                
+                # Check every 2 seconds
+                time.sleep(2.0)
+                
+            except Exception as e:
+                logger.error(f"Error in readiness monitor: {e}")
+                time.sleep(5.0)
+        
+        logger.debug("Worker readiness monitoring thread exiting")
 
 
 # Global worker pool
