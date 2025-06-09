@@ -1,143 +1,171 @@
-# CogView4 Image Generation API with Real-Time SSE Streaming
+# CogView4 Image Generation API with Advanced Multiprocessing & Streaming
 
-A FastAPI-based implementation of an OpenAI-compatible image generation API using CogView4, featuring **real-time streaming** of intermediate results via Server-Sent Events (SSE) as each denoising step completes.
+A high-performance FastAPI-based implementation of an OpenAI-compatible image generation API using CogView4, featuring **persistent worker pool architecture**, **real-time streaming** with intelligent chunking, and **comprehensive testing tools**.
 
-## Features
+## 🚀 Key Features
 
-- 🚀 **OpenAI-compatible API** - Drop-in replacement for OpenAI's image generation API
-- ⚡ **Real-time streaming** - Watch images form step-by-step with **live SSE updates**
-- 🎨 **CogView4 Integration** - Powered by the latest CogView4-6B model
-- 🔄 **Async processing** - Non-blocking image generation with FastAPI
-- 🌐 **Web interface** - Beautiful HTML client for testing
-- 📱 **Cross-platform** - Works on CUDA, CPU, and supports fallback
-- 🔧 **Configurable** - Adjustable parameters for different use cases
-- 🧪 **Testing tools** - Comprehensive test suite to verify streaming performance
+- **🏗️ Production-Ready Architecture** - Persistent worker pool with multiprocessing for true concurrent generation
+- **⚡ Real-time SSE Streaming** - Watch images form step-by-step with intelligent chunking for large images  
+- **🎯 OpenAI Compatibility** - Drop-in replacement for OpenAI's image generation API
+- **🔧 Advanced Configuration** - Environment variables, logging, and deployment options
+- **🧪 Comprehensive Testing** - Full test suite with connectivity, streaming, and performance validation
+- **📚 Complete Documentation** - Detailed API docs, architecture guides, and client examples
+- **🌐 Production Web Client** - Modern HTML interface with real-time progress visualization
+- **🔄 GPU Load Balancing** - Automatic distribution across multiple GPUs
+- **🛡️ Robust Error Handling** - Graceful fallbacks and detailed logging
 
-## Key Innovation: True Real-Time Streaming
-
-Unlike traditional batch processing where you wait for the entire generation to complete, our implementation streams intermediate images **as they're being generated**:
-
-- ✅ **Step-by-step updates**: See the image evolve in real-time
-- ✅ **Immediate feedback**: Know the generation is progressing
-- ✅ **Early preview**: Get a sense of the final result before completion
-- ✅ **Concurrent streams**: Multiple generations can stream simultaneously
-
-## Architecture
+## 🏗️ Architecture Overview
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Web Client    │◄──▶│   FastAPI Server │◄──▶│  CogView4 Model │
-│   (HTML/JS)     │    │  (cogview4_api_  │    │   (Diffusers)   │
-└─────────────────┘    │     server.py)   │    └─────────────────┘
-                       └──────────────────┘
-                                │
-                                ▼
-                       ┌──────────────────┐
-                       │  Real-Time SSE   │
-                       │   Streaming      │
-                       │ (AsyncQueue +    │
-                       │  Step Callback)  │
-                       └──────────────────┘
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+│   Web Client    │◄──▶│   FastAPI Main   │◄──▶│   Persistent Worker │
+│ (web_client.html│    │    Process       │    │       Pool          │
+│  + Real-time UI)│    │ (cogview4_api_   │    │  (4 GPU Workers)    │
+└─────────────────┘    │   server.py)     │    └─────────────────────┘
+                       └──────────────────┘              │
+                                │                        │
+                       ┌──────────────────┐              │
+                       │  Advanced SSE    │              │
+                       │   Streaming      │              │
+                       │ • Chunking       │              │
+                       │ • Queue Mgmt     │              │
+                       │ • Error Recovery │              │
+                       └──────────────────┘              │
+                                                         │
+                       ┌─────────────────────────────────┴┐
+                       │     Per-Worker Resources         │
+                       │ • CogView4 Pipeline (12GB)       │
+                       │ • Dedicated GPU Memory           │
+                       │ • Independent Processing         │
+                       │ • from_pipe() Memory Efficiency  │
+                       └──────────────────────────────────┘
 ```
 
-## Installation
+## 📁 Project Structure
+
+```
+CogView4-FastAPI/
+├── cogview4_api_server.py      # Main FastAPI server with worker pool
+├── requirements.txt            # Production dependencies
+├── start_server.sh            # Production startup script
+├── web_client.html            # Modern web interface
+├── test_client.py             # Comprehensive test client
+├── test_connectivity.py       # Basic connectivity testing
+├── API_DOCUMENTATION.md       # Detailed API documentation  
+├── TEST_CLIENT_README.md      # Test client guide
+└── LICENSE                    # Apache 2.0 license
+```
+
+## 🛠️ Installation & Setup
 
 ### Prerequisites
 
-- Python 3.8+
-- CUDA-compatible GPU (optional, will fallback to CPU)
-- 8GB+ RAM (16GB+ recommended for GPU usage)
+- **Python 3.8+**
+- **CUDA-compatible GPU(s)** (RTX 3080+ recommended, 8GB+ VRAM)
+- **16GB+ System RAM** (32GB+ recommended for multiple workers)
 
-### Setup
+### Quick Setup
 
-1. **Clone or download the files**
+1. **Clone and install**
    ```bash
-   # Create project directory
-   mkdir cogview4-api
-   cd cogview4-api
-   
-   # Copy the provided files:
-   # - cogview4_api_server.py
-   # - requirements.txt
-   # - client_example.py
-   # - web_client.html
-   # - test_streaming.py
-   # - start_server.sh
-   ```
-
-2. **Install dependencies**
-   ```bash
+   git clone <your-repo>
+   cd CogView4-FastAPI
    pip install -r requirements.txt
    ```
 
-3. **Download CogView4 model** (automatic on first run)
+2. **Start the server**
    ```bash
-   # The model will be downloaded automatically when the server starts
-   # Requires ~12GB of disk space for the CogView4-6B model
+   chmod +x start_server.sh
+   ./start_server.sh
    ```
 
-## Usage
+3. **Test the installation**
+   ```bash
+   python test_connectivity.py
+   ```
 
-### Starting the Server
+The server will automatically:
+- Download CogView4-6B model (~12GB) on first run
+- Initialize worker pool across available GPUs
+- Start serving on `http://localhost:8000`
 
-#### Option 1: Use the startup script (recommended)
+## 🔥 Advanced Worker Pool Architecture
+
+### Multi-GPU Persistent Workers
+- **4 persistent worker processes** (configurable via `NUM_WORKER_PROCESSES`)
+- **Automatic GPU distribution** - Workers spread across available GPUs
+- **Independent model loading** - Each worker loads CogView4 once and reuses
+- **Memory optimization** - Uses `from_pipe()` for efficient concurrent requests
+- **Fault tolerance** - Workers can restart independently
+
+### Request Processing
+- **Queue-based distribution** - Fair load balancing across workers
+- **Concurrent generation** - Multiple images can generate simultaneously
+- **Memory management** - Automatic cleanup and GPU memory optimization
+- **Progress tracking** - Real-time status for each generation
+
+## ⚡ Enhanced Streaming Features
+
+### Intelligent Chunking System
+- **Large image support** - Automatically chunks images >400KB
+- **Seamless reassembly** - Client-side automatic chunk reconstruction  
+- **Progress granularity** - Configurable step frequency (default: every 10%)
+- **Error recovery** - Robust handling of network interruptions
+
+### Real-Time Performance
+- **Step-by-step updates** - See generation progress immediately
+- **Timing analytics** - Detailed performance metrics
+- **Multiple concurrent streams** - No interference between requests
+- **Low latency** - ~50-100ms per intermediate update
+
+## 🧪 Comprehensive Testing Suite
+
+### Test Client (`test_client.py`)
+Advanced Python client with full feature testing:
+
 ```bash
-chmod +x start_server.sh
-./start_server.sh
+# Run all tests
+python test_client.py --all
+
+# Test specific features
+python test_client.py --test-streaming --save-intermediates
+python test_client.py --test-non-streaming --output-dir ./results
+
+# Custom configuration
+python test_client.py --all --prompt "A futuristic cityscape" --url http://your-server:8000
 ```
 
-#### Option 2: Direct Python execution
+**Features:**
+- ✅ **Streaming vs Non-streaming comparison**
+- ✅ **Chunked data reassembly testing**
+- ✅ **Performance benchmarking**
+- ✅ **Concurrent request testing**
+- ✅ **Error handling validation**
+- ✅ **Image quality verification**
+
+### Connectivity Testing (`test_connectivity.py`)
+Quick validation of basic functionality:
+
 ```bash
-python cogview4_api_server.py
+python test_connectivity.py --url http://localhost:8000
 ```
 
-The server will start on `http://localhost:8000` and automatically download the CogView4 model on first run.
+**Tests:**
+- API endpoint availability (`/health`, `/status`, `/v1/models`)
+- Worker pool initialization
+- Model loading status
+- Basic generation capability
+- Streaming endpoint connectivity
 
-### Testing Real-Time Streaming
+## 📊 API Endpoints
 
-Run the test script to see the real-time streaming in action:
-
-```bash
-python test_streaming.py
-```
-
-This will demonstrate:
-- **Real-time vs batch processing comparison**
-- **Step-by-step timing analysis**
-- **Multiple concurrent streams**
-- **Performance metrics**
-
-Example output:
-```
-🧪 Testing Real-Time Streaming vs Batch Processing
-============================================================
-
-🔄 Starting STREAMING test...
-Watch for real-time updates as each step completes:
---------------------------------------------------
-⏳ STEP [14:23:45.123] Step  2/20 ( 10.0%) - Time since start: 1.45s
-      ⏱️  Time since last step: 0.85s
-⏳ STEP [14:23:46.234] Step  4/20 ( 20.0%) - Time since start: 2.56s
-      ⏱️  Time since last step: 1.11s
-...
-🎯 FINAL [14:23:52.789] Step 20/20 (100.0%) - Time since start: 8.91s
-
-📊 STREAMING RESULTS:
-   Total time: 8.91s
-   Steps received: 10
-   Average step interval: 0.89s
-   ✅ Real-time updates received during generation!
-```
-
-### API Endpoints
-
-#### Generate Images with Streaming
+### Core Generation Endpoint
 ```http
 POST /v1/images/generations
 Content-Type: application/json
 
 {
-  "prompt": "A beautiful landscape with mountains and a lake at sunset",
+  "prompt": "A beautiful landscape with mountains at sunset",
   "negative_prompt": "blurry, low quality, distorted",
   "size": "1024x1024",
   "n": 1,
@@ -147,229 +175,178 @@ Content-Type: application/json
 }
 ```
 
-#### Other Endpoints
-- `GET /health` - Health check
-- `GET /v1/models` - List available models (OpenAI compatibility)
-- `GET /` - API information
+### Monitoring & Health
+- `GET /health` - Worker pool and model status
+- `GET /status` - Detailed system information  
+- `GET /v1/models` - Available models (OpenAI compatibility)
+- `GET /client.html` - Serves the web interface
 
-### Real-Time Streaming Response Format
+### Enhanced Response Format
 
-When `stream: true` is enabled, the API returns Server-Sent Events with immediate updates:
-
-```
+**Streaming Response (SSE):**
+```javascript
 data: {
-  "step": 5,
+  "step": 15,
   "total_steps": 50,
-  "progress": 0.1,
-  "image": "base64_encoded_intermediate_image",
-  "timestamp": 1640995200.123,
-  "is_final": false
+  "progress": 0.3,
+  "image": "base64_encoded_image_or_chunk",
+  "timestamp": 1640995205.123,
+  "is_final": false,
+  "is_chunked": true,
+  "chunk_id": "uuid-chunk-identifier", 
+  "chunk_index": 2,
+  "total_chunks": 5
 }
-
-data: {
-  "step": 10,
-  "total_steps": 50,
-  "progress": 0.2,
-  "image": "base64_encoded_intermediate_image",
-  "timestamp": 1640995201.456,
-  "is_final": false
-}
-
-...
-
-data: {
-  "step": 50,
-  "total_steps": 50,
-  "progress": 1.0,
-  "image": "base64_encoded_final_image",
-  "timestamp": 1640995210.789,
-  "is_final": true
-}
-
-data: [DONE]
 ```
 
-### Parameters
+## 🌐 Production Web Interface
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | string | required | Text description of desired image |
-| `negative_prompt` | string | null | What to avoid in the image |
-| `size` | string | "1024x1024" | Image dimensions (WxH) |
-| `n` | integer | 1 | Number of images to generate (1-4) |
-| `guidance_scale` | float | 5.0 | How closely to follow the prompt (1.0-20.0) |
-| `num_inference_steps` | integer | 50 | Number of denoising steps (10-150) |
-| `stream` | boolean | false | **Enable real-time SSE streaming** |
-| `response_format` | string | "b64_json" | Response format |
+Open `web_client.html` or visit `http://localhost:8000/client.html` for:
 
-## Client Examples
+- **Real-time generation monitoring** with live progress bars
+- **Advanced parameter controls** (guidance scale, steps, size)
+- **Streaming toggle** - Compare streaming vs batch processing
+- **Multiple image support** - Generate up to 4 images simultaneously  
+- **Image gallery** - View and download all generated images
+- **Performance metrics** - See generation timing and step intervals
+- **Error handling** - User-friendly error messages and recovery
 
-### Python Real-Time Streaming Client
+## 🔧 Configuration & Environment
 
-```python
-import asyncio
-from client_example import CogView4Client
-
-async def real_time_generation():
-    client = CogView4Client("http://localhost:8000")
-    
-    print("Starting real-time streaming generation...")
-    
-    # Real-time streaming - see each step as it happens
-    async for result in client.generate_image(
-        prompt="A cosmic nebula with swirling colors",
-        stream=True,
-        num_inference_steps=30
-    ):
-        if 'error' in result:
-            print(f"Error: {result['error']}")
-            break
-            
-        step = result.get('step', 0)
-        total = result.get('total_steps', 0)
-        progress = result.get('progress', 0) * 100
-        is_final = result.get('is_final', False)
-        
-        if is_final:
-            print(f"🎯 FINAL image at step {step}")
-            client.save_base64_image(result['image'], "final_cosmic_nebula.png")
-        else:
-            print(f"⏳ Intermediate step {step}/{total} ({progress:.1f}%)")
-            # Optionally save intermediate steps
-            if step % 5 == 0:
-                client.save_base64_image(result['image'], f"intermediate_step_{step}.png")
-
-asyncio.run(real_time_generation())
-```
-
-### Web Interface
-
-Open `web_client.html` in your browser for a full-featured web interface featuring:
-- **Real-time progress visualization**
-- **Live streaming controls**
-- **Step-by-step image updates**
-- **Progress tracking with timestamps**
-- **Batch vs streaming comparison**
-
-### cURL Real-Time Streaming
+### Environment Variables
 
 ```bash
-curl -X POST "http://localhost:8000/v1/images/generations" \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "prompt": "A magical forest with glowing mushrooms",
-    "stream": true,
-    "num_inference_steps": 25
-  }' \
-  --no-buffer
+# Server configuration
+export COGVIEW4_HOST="0.0.0.0"          # Server host
+export COGVIEW4_PORT="8000"             # Server port  
+export COGVIEW4_DEVICE="cuda"           # Device type
+
+# Worker pool settings
+export NUM_WORKER_PROCESSES="4"         # Number of worker processes
+export LOG_LEVEL="INFO"                 # Logging level
+export LOG_FILE="cogview4_api.log"      # Log file path
 ```
 
-## Performance & Real-Time Characteristics
+### Hardware Optimization
 
-### Streaming Performance
-- **Step frequency**: Configurable (default: every 10% of steps)
-- **Latency**: ~50-100ms per intermediate update
-- **Overhead**: ~5-10% compared to batch processing
-- **Concurrency**: Supports multiple simultaneous streams
+**Recommended Configuration:**
+- **GPU**: RTX 4080/4090 (16GB+ VRAM) for optimal performance
+- **Workers**: 1 worker per 8GB GPU memory (adjust `NUM_WORKER_PROCESSES`)
+- **RAM**: 32GB+ system RAM for 4 workers
+- **Storage**: SSD recommended for model and image I/O
 
-### GPU Requirements
-- **Recommended**: RTX 3080/4080 or better (12GB+ VRAM)
-- **Minimum**: RTX 3060 (8GB VRAM) with reduced batch sizes
-- **Fallback**: CPU mode (much slower but functional)
+**Scaling Guidelines:**
+- **Single GPU (8GB)**: 1-2 workers
+- **Single GPU (16GB+)**: 2-4 workers  
+- **Multi-GPU setup**: 1-2 workers per GPU
+- **Production**: Monitor GPU memory usage and adjust accordingly
 
-### Optimization for Real-Time
-- **Adaptive frequency**: Fewer intermediates for shorter generations
-- **Async queuing**: Non-blocking step processing
-- **Memory management**: Efficient latent decoding
-- **Concurrent processing**: Multiple streams without interference
+## 📈 Performance Characteristics
 
-## Testing and Validation
+### Throughput Metrics
+- **Concurrent generations**: Up to 4 simultaneous (default worker count)
+- **First response time**: 1-3 seconds (model already loaded)
+- **Streaming frequency**: Every 5-10% of total steps  
+- **Memory efficiency**: ~12GB per worker + shared system overhead
 
-### Automated Tests
+### Optimization Features
+- **Persistent model loading** - No cold starts after initialization
+- **GPU memory pooling** - Efficient VRAM utilization
+- **Async queue processing** - Non-blocking request handling
+- **Intelligent chunking** - Handles large images without memory issues
 
-Run comprehensive tests to validate streaming performance:
+## 🚀 Production Deployment
 
+### Docker Deployment (Recommended)
+```dockerfile
+FROM nvidia/cuda:11.8-devel-ubuntu20.04
+# Add your Dockerfile configuration
+```
+
+### Systemd Service
 ```bash
-# Test real-time streaming vs batch processing
-python test_streaming.py
-
-# Test multiple concurrent streams
-python test_streaming.py  # includes concurrent testing
+# Create service file for auto-start
+sudo nano /etc/systemd/system/cogview4-api.service
 ```
 
-### Manual Testing
+### Load Balancing
+- Use nginx or similar for multiple API instances
+- Configure GPU affinity per instance
+- Implement health checks and failover
 
-1. **Web Interface Test**: Open `web_client.html` and enable streaming
-2. **CLI Test**: Use the `client_example.py` with streaming enabled
-3. **API Test**: Use cURL with SSE headers
+## 📚 Documentation
 
-### Performance Benchmarks
+- **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - Complete API reference with architecture details
+- **[TEST_CLIENT_README.md](TEST_CLIENT_README.md)** - Test client usage and examples
+- **Server logs** - Detailed logging in `cogview4_api.log`
 
-Expected performance characteristics:
-- **First intermediate**: 1-3 seconds after request
-- **Step interval**: 0.5-2 seconds depending on complexity
-- **Final image**: Same total time as batch ±10%
-- **Memory usage**: +10-20% for queue management
-
-## Troubleshooting Real-Time Streaming
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **Delayed streaming updates**
-   - Check network buffering
-   - Verify SSE client implementation
-   - Reduce inference steps for testing
+1. **Worker initialization failed**
+   ```bash
+   # Check GPU memory and reduce worker count
+   export NUM_WORKER_PROCESSES="2"
+   ./start_server.sh
+   ```
 
-2. **Missing intermediate images**
-   - Check step frequency configuration
-   - Verify GPU memory availability
-   - Monitor server logs for decode errors
+2. **Streaming connection issues**
+   ```bash
+   # Test basic connectivity first
+   python test_connectivity.py
+   ```
 
-3. **Streaming stops mid-generation**
-   - Check client timeout settings
-   - Verify stable network connection
-   - Monitor server resource usage
+3. **Memory errors**
+   ```bash
+   # Monitor GPU usage
+   nvidia-smi -l 1
+   ```
 
-### Debug Real-Time Streaming
-
-Enable detailed logging:
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Run with debug info
+### Debug Mode
+```bash
+export LOG_LEVEL="DEBUG"
 python cogview4_api_server.py
 ```
 
-Monitor streaming queue:
-```bash
-# Check server logs for queue status
-tail -f server.log | grep "queue\|stream\|step"
-```
+## 🤝 Contributing
 
-## License
+Priority areas for contributions:
+- **Performance optimizations** - Memory usage, generation speed
+- **Client implementations** - React, Flutter, etc.
+- **Deployment tools** - Docker, K8s configurations  
+- **Advanced features** - LoRA support, custom models
+- **Documentation** - Tutorials, deployment guides
 
-This implementation is provided under the Apache License 2.0. The CogView4 model follows its own license terms from THUDM.
+## 📄 License
 
-## Contributing
+Apache License 2.0 - See [LICENSE](LICENSE) file for details.
 
-Contributions welcome! Priority areas:
-- **Streaming optimizations** (reduce latency, improve throughput)
-- **Advanced client examples** (WebSocket support, React components)
-- **Performance monitoring** (metrics collection, dashboards)
-- **Error recovery** (resilient streaming, automatic reconnection)
+CogView4 model follows THUDM's license terms.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- **THUDM** for the CogView4 model
-- **Hugging Face** for the Diffusers library  
-- **FastAPI** for excellent async support
-- **Community** for streaming optimization suggestions
+- **THUDM** for the exceptional CogView4 model
+- **Hugging Face** for the Diffusers library and model hosting
+- **FastAPI** for excellent async and production capabilities  
+- **Community** for testing, feedback, and optimizations
 
 ---
 
-🚀 **Ready to experience real-time AI image generation?** Start the server and watch your prompts come to life step by step!
+## 🎯 Quick Start Commands
 
-## References
-- https://github.com/THUDM/CogView4.git
+```bash
+# 1. Setup and start
+./start_server.sh
+
+# 2. Test everything works  
+python test_client.py --all
+
+# 3. Open web interface
+# Visit: http://localhost:8000/client.html
+
+# 4. API health check
+curl http://localhost:8000/health
+```
+
+**🚀 Ready for production-grade AI image generation with real-time streaming!**
