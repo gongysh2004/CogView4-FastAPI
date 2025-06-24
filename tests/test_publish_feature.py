@@ -24,7 +24,7 @@ def test_publish_api():
         "size": "512x512",
         "seed": 12345,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20
+        "num_inference_steps": 5
     }
     
     try:

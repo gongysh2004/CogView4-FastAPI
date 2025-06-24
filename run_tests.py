@@ -28,6 +28,19 @@ def run_tests(test_pattern=None, verbose=False):
     if verbose:
         cmd.append('-v')
     
+    # Add pytest-asyncio for async test support
+    try:
+        import pytest_asyncio
+        cmd.extend(['--asyncio-mode=auto'])
+    except ImportError:
+        print("⚠️  pytest-asyncio not installed. Installing it for async test support...")
+        try:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'pytest-asyncio'], check=True)
+            cmd.extend(['--asyncio-mode=auto'])
+            print("✅ pytest-asyncio installed successfully")
+        except subprocess.CalledProcessError:
+            print("❌ Failed to install pytest-asyncio. Some async tests may fail.")
+    
     # Add coverage if available
     try:
         import pytest_cov

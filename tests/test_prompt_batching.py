@@ -28,7 +28,7 @@ async def test_prompt_batching():
     common_params = {
         "size": "1024x1024",
         "guidance_scale": 7.5,
-        "num_inference_steps": 30,
+        "num_inference_steps": 10,
         "n": 1
     }
     
@@ -120,7 +120,7 @@ async def test_streaming_batching():
             "stream": True,
             "size": "1024x1024",
             "guidance_scale": 7.5,
-            "num_inference_steps": 20,
+            "num_inference_steps": 10,
             "n": 1
         }
         
@@ -185,7 +185,7 @@ async def test_mixed_parameters():
     async def mixed_request(session: aiohttp.ClientSession, req_data: dict, idx: int):
         """Send request with specific parameters"""
         payload = {
-            "num_inference_steps": 20,
+            "num_inference_steps": 10,
             "n": 1,
             **req_data
         }
@@ -250,7 +250,7 @@ async def test_prompt_negative_prompt_pairing():
     common_params = {
         "size": "1024x1024",
         "guidance_scale": 7.5,
-        "num_inference_steps": 25,
+        "num_inference_steps": 10,
         "n": 1
     }
     
@@ -309,7 +309,7 @@ async def test_num_images_batching():
     """Test that only requests with same num_images are batched together"""
     print("\n🔢 Testing num_images Batching Rules")
     
-    # Test cases with different num_images values
+    # Test cases with different num_images values (using smaller values to avoid timeouts)
     test_cases = [
         {
             "name": "Single image requests (should batch together)",
@@ -330,7 +330,7 @@ async def test_num_images_batching():
             "name": "Mixed image counts (should NOT batch together)",
             "requests": [
                 {"prompt": "A space station", "n": 1, "guidance_scale": 7.5},
-                {"prompt": "A robot design", "n": 3, "guidance_scale": 7.5},  # Different n=3
+                {"prompt": "A robot design", "n": 2, "guidance_scale": 7.5},  # Different n=2 (reduced from 3)
             ]
         }
     ]
@@ -345,42 +345,75 @@ async def test_num_images_batching():
         for req in case['requests']:
             full_req = {
                 **req,
-                "size": "1024x1024",
-                "num_inference_steps": 25,
+                "size": "512x512",  # Reduced size for faster processing
+                "num_inference_steps": 10,
                 "negative_prompt": "blurry, low quality"
             }
             requests.append(full_req)
         
-        # Send requests concurrently
+        # Send requests concurrently with timeout
         async def send_case_request(session, req_data, idx):
             start_time = time.time()
-            async with session.post(
-                "http://localhost:8000/v1/images/generations",
-                json=req_data
-            ) as response:
-                duration = time.time() - start_time
-                success = response.status == 200
-                
-                if success:
-                    result = await response.json()
-                    num_images = len(result['data'])
-                    print(f"   ✅ Request {idx+1}: {duration:.2f}s, got {num_images} images")
-                else:
-                    print(f"   ❌ Request {idx+1}: Failed")
+            try:
+                async with session.post(
+                    "http://localhost:8000/v1/images/generations",
+                    json=req_data
+                ) as response:
+                    duration = time.time() - start_time
+                    success = response.status == 200
                     
-                return success, duration
+                    if success:
+                        result = await response.json()
+                        num_images = len(result['data'])
+                        print(f"   ✅ Request {idx+1}: {duration:.2f}s, got {num_images} images")
+                    else:
+                        error_text = await response.text()
+                        print(f"   ❌ Request {idx+1}: Failed with status {response.status}")
+                        print(f"      Error: {error_text[:100]}...")
+                        
+                    return success, duration
+            except asyncio.TimeoutError:
+                duration = time.time() - start_time
+                print(f"   ❌ Request {idx+1}: Timeout after {duration:.2f}s")
+                return False, duration
+            except Exception as e:
+                duration = time.time() - start_time
+                print(f"   ❌ Request {idx+1}: Error - {e}")
+                return False, duration
         
         print(f"🔄 Sending {len(requests)} requests...")
         
-        async with aiohttp.ClientSession() as session:
-            tasks = [
-                send_case_request(session, req, i) 
-                for i, req in enumerate(requests)
-            ]
-            
-            results = await asyncio.gather(*tasks)
+        # Use a timeout for the entire batch
+        try:
+            async with aiohttp.ClientSession() as session:
+                tasks = [
+                    send_case_request(session, req, i) 
+                    for i, req in enumerate(requests)
+                ]
+                
+                # Add timeout to the entire gather operation
+                results = await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=600  # 10 minutes total timeout
+                )
+                
+                # Handle exceptions in results
+                successful = 0
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        print(f"   ❌ Request {i+1}: Exception - {result}")
+                    elif isinstance(result, tuple) and len(result) == 2:
+                        success, duration = result
+                        if success:
+                            successful += 1
+                
+        except asyncio.TimeoutError:
+            print(f"   ❌ Batch timeout after 10 minutes")
+            successful = 0
+        except Exception as e:
+            print(f"   ❌ Batch error: {e}")
+            successful = 0
         
-        successful = sum(1 for success, _ in results if success)
         print(f"📊 Case Result: {successful}/{len(requests)} successful")
 
 async def main():

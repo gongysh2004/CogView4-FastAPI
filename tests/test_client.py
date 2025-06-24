@@ -14,6 +14,7 @@ import sys
 from typing import Dict, Any, Optional
 from pathlib import Path
 import logging
+import pytest
 
 # Configure logging
 logging.basicConfig(
@@ -48,10 +49,7 @@ class CogView4Client:
         
         self.session = aiohttp.ClientSession(
             connector=connector,
-            timeout=timeout,
-            # Increase max_line_size and max_field_size for large SSE data
-            max_line_size=1024 * 1024 * 10,
-            max_field_size=1024 * 1024 * 10
+            timeout=timeout
         )
         return self
     
@@ -83,7 +81,7 @@ class CogView4Client:
         negative_prompt: Optional[str] = None,
         size: str = "1024x1024",
         guidance_scale: float = 5.0,
-        num_inference_steps: int = 50,
+        num_inference_steps: int = 5,
         n: int = 1,
         save_intermediates: bool = False,
         output_dir: str = "output"
@@ -257,7 +255,7 @@ class CogView4Client:
         negative_prompt: Optional[str] = None,
         size: str = "1024x1024",
         guidance_scale: float = 5.0,
-        num_inference_steps: int = 50,
+        num_inference_steps: int = 5,
         n: int = 1,
         output_dir: str = "output"
     ) -> Dict[str, Any]:
@@ -371,7 +369,14 @@ class CogView4Client:
             logger.debug(f"Image data preview: {image_b64[:100]}..." if len(image_b64) > 100 else image_b64)
 
 
-async def test_api_endpoints(client: CogView4Client):
+@pytest.fixture
+async def client():
+    """Fixture to provide a CogView4Client instance"""
+    async with CogView4Client("http://localhost:8000") as client:
+        yield client
+
+@pytest.mark.asyncio
+async def test_api_endpoints(client):
     """Test all API endpoints"""
     logger.info("=== Testing API Endpoints ===")
     
@@ -391,63 +396,58 @@ async def test_api_endpoints(client: CogView4Client):
         models = await client.list_models()
         logger.info(f"Models: {json.dumps(models, indent=2)}")
         
-        return True
+        assert True  # If we get here, all tests passed
         
     except Exception as e:
         logger.error(f"API endpoint test failed: {e}")
-        return False
+        assert False, f"API endpoint test failed: {e}"
 
+@pytest.mark.asyncio
+async def test_image_generation_streaming(client):
+    """Test streaming image generation"""
+    logger.info("=== Testing Streaming Image Generation ===")
+    
+    try:
+        logger.info("Testing streaming generation...")
+        streaming_result = await client.generate_image_streaming(
+            prompt="A beautiful sunset over mountains",
+            negative_prompt="blurry, low quality, distorted",
+            size="512x512",  # Smaller size for faster testing
+            guidance_scale=7.5,
+            num_inference_steps=10,  # Minimum required by API
+            n=1,
+            save_intermediates=False
+        )
+        logger.info(f"Streaming test completed: {streaming_result['total_time']:.2f}s")
+        assert 'total_time' in streaming_result
+        assert streaming_result['streaming'] == True
+        
+    except Exception as e:
+        logger.error(f"Streaming test failed: {e}")
+        assert False, f"Streaming test failed: {e}"
 
-async def test_image_generation(
-    client: CogView4Client,
-    prompt: str,
-    test_streaming: bool = True,
-    test_non_streaming: bool = True,
-    save_intermediates: bool = False
-):
-    """Test image generation with both streaming and non-streaming"""
-    logger.info("=== Testing Image Generation ===")
+@pytest.mark.asyncio
+async def test_image_generation_non_streaming(client):
+    """Test non-streaming image generation"""
+    logger.info("=== Testing Non-Streaming Image Generation ===")
     
-    results = {}
-    
-    if test_streaming:
-        try:
-            logger.info("Testing streaming generation...")
-            streaming_result = await client.generate_image_streaming(
-                prompt=prompt,
-                negative_prompt="blurry, low quality, distorted",
-                size="512x512",  # Smaller size for faster testing
-                guidance_scale=7.5,
-                num_inference_steps=20,  # Fewer steps for faster testing
-                n=1,
-                save_intermediates=save_intermediates
-            )
-            results['streaming'] = streaming_result
-            logger.info(f"Streaming test completed: {streaming_result['total_time']:.2f}s")
-            
-        except Exception as e:
-            logger.error(f"Streaming test failed: {e}")
-            results['streaming'] = {'error': str(e)}
-    
-    if test_non_streaming:
-        try:
-            logger.info("Testing non-streaming generation...")
-            non_streaming_result = await client.generate_image_non_streaming(
-                prompt=prompt,
-                negative_prompt="blurry, low quality, distorted",
-                size="512x512",  # Smaller size for faster testing
-                guidance_scale=7.5,
-                num_inference_steps=20,  # Fewer steps for faster testing
-                n=1
-            )
-            results['non_streaming'] = non_streaming_result
-            logger.info(f"Non-streaming test completed: {non_streaming_result['total_time']:.2f}s")
-            
-        except Exception as e:
-            logger.error(f"Non-streaming test failed: {e}")
-            results['non_streaming'] = {'error': str(e)}
-    
-    return results
+    try:
+        logger.info("Testing non-streaming generation...")
+        non_streaming_result = await client.generate_image_non_streaming(
+            prompt="A beautiful sunset over mountains",
+            negative_prompt="blurry, low quality, distorted",
+            size="512x512",  # Smaller size for faster testing
+            guidance_scale=7.5,
+            num_inference_steps=10,  # Minimum required by API
+            n=1
+        )
+        logger.info(f"Non-streaming test completed: {non_streaming_result['total_time']:.2f}s")
+        assert 'total_time' in non_streaming_result
+        assert non_streaming_result['streaming'] == False
+        
+    except Exception as e:
+        logger.error(f"Non-streaming test failed: {e}")
+        assert False, f"Non-streaming test failed: {e}"
 
 
 async def main():

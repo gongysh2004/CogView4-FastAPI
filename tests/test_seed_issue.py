@@ -21,7 +21,7 @@ def test_seed_generation():
         "size": "512x512",
         "n": 1,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "stream": False,
         "response_format": "b64_json"
         # 注意：没有指定seed
@@ -59,7 +59,7 @@ def test_seed_generation():
         "size": "512x912",
         "n": 1,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "stream": False,
         "response_format": "b64_json",
         "seed": 12345  # 指定seed
@@ -96,7 +96,7 @@ def test_seed_generation():
         "size": "512x912",
         "n": 1,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "stream": True,
         "response_format": "b64_json"
         # 注意：没有指定seed

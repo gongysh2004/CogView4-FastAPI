@@ -33,11 +33,7 @@ async def test_connectivity(base_url: str = "http://localhost:8000"):
     
     async with aiohttp.ClientSession(
         connector=connector,
-        timeout=timeout,
-        connector_kwargs={
-            'max_line_size': 1024 * 1024 * 10,  # 10MB
-            'max_field_size': 1024 * 1024 * 10   # 10MB
-        }
+        timeout=timeout
     ) as session:
         
         # Test health endpoint
@@ -91,7 +87,7 @@ async def test_connectivity(base_url: str = "http://localhost:8000"):
                 "prompt": "A simple test image",
                 "size": "512x512",
                 "guidance_scale": 5.0,
-                "num_inference_steps": 10,  # Very few steps for quick test
+                "num_inference_steps": 10,
                 "n": 1,
                 "stream": False,
                 "response_format": "b64_json"
@@ -127,7 +123,7 @@ async def test_connectivity(base_url: str = "http://localhost:8000"):
                 "prompt": "A simple test image",
                 "size": "512x512",
                 "guidance_scale": 5.0,
-                "num_inference_steps": 5,  # Very few steps
+                "num_inference_steps": 10,
                 "n": 1,
                 "stream": True,
                 "response_format": "b64_json"

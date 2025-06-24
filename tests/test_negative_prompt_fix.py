@@ -18,7 +18,7 @@ async def test_mixed_negative_prompts():
             "negative_prompt": "ugly, blurry",  # Has negative prompt
             "size": "1024x1024",
             "guidance_scale": 7.5,
-            "num_inference_steps": 25,
+            "num_inference_steps": 10,
             "n": 1
         },
         {
@@ -26,7 +26,7 @@ async def test_mixed_negative_prompts():
             "negative_prompt": None,  # No negative prompt (None)
             "size": "1024x1024",
             "guidance_scale": 7.5,
-            "num_inference_steps": 25,
+            "num_inference_steps": 10,
             "n": 1
         }
     ]

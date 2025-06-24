@@ -22,7 +22,7 @@ def test_gallery_publish_with_seed():
         "size": "512x512",
         "n": 1,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "stream": False,
         "response_format": "b64_json"
         # 不指定seed，让系统自动生成
@@ -141,7 +141,7 @@ def test_gallery_publish_without_seed():
         "size": "512x512",
         "n": 1,
         "guidance_scale": 5.0,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "stream": False,
         "response_format": "b64_json"
     }

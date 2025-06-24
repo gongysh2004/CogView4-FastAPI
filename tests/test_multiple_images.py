@@ -17,7 +17,7 @@ def test_non_streaming_multiple_images():
         "n": 3,  # Generate 3 images
         "size": "512x512",
         "stream": False,
-        "num_inference_steps": 20,
+        "num_inference_steps": 10,
         "guidance_scale": 5.0
     }
     
@@ -43,7 +43,7 @@ def test_streaming_multiple_images():
         "n": 2,  # Generate 2 images
         "size": "512x512", 
         "stream": True,
-        "num_inference_steps": 15,
+        "num_inference_steps": 10,
         "guidance_scale": 5.0
     }
     
