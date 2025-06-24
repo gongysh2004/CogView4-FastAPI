@@ -131,6 +131,17 @@
             "timestamp": 1750740188,
             "guidance_scale": 5,
             "num_inference_steps": 20
+        },
+        {
+            "id": 13,
+            "url": "/static/images/image-1750757796.jpg",
+            "prompt": "一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一只红色气球正面缓缓飘来，映着 AiLinks 字样。",
+            "negative_prompt": "blurry, low quality, distorted, ugly",
+            "size": "512x512",
+            "seed": 2706036684,
+            "timestamp": 1750757796,
+            "guidance_scale": 5,
+            "num_inference_steps": 20
         }
     ]
 }

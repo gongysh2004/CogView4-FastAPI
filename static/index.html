@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CogView4 Image Generation Client</title>
+    <title>AiLinks AIGC 文生图</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         /* Override theme toggle positioning when inside navigation */
@@ -257,41 +257,38 @@
         
         <!-- Left Panel - Settings -->
         <div class="left-panel">
-            <h1>🎨 CogView4 Settings</h1>
+            <h1>🎨  AiLinks文生图设置</h1>
             
-            <div class="api-info">
+            <!-- <div class="api-info">
                 <strong>API Server:</strong> <span id="apiUrl">http://192.168.95.192:8000</span> | 
                 <strong>Status:</strong> <span id="apiStatus">Checking...</span>
-            </div>
+            </div> -->
             
             <form id="generateForm">
                 <div class="form-group">
-                    <label for="prompt">Prompt *</label>
+                    <label for="prompt">提示词 *</label>
                     <div class="prompt-container">
-                        <textarea id="prompt" placeholder="Describe the image you want to generate..." required>A beautiful landscape with mountains and a lake at sunset</textarea>
+                        <textarea id="prompt" placeholder="Describe the image you want to generate..." required>一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一只红色气球正面缓缓飘来，映着 AiLinks 字样。</textarea>
                         <div class="prompt-actions">
-                            <button type="button" id="optimizePromptBtn" class="btn-optimize">🤖 Optimize Prompt</button>
-                            <button type="button" id="translatePromptBtn" class="btn-translate">🌐 Translate Prompt</button>
-                            <button type="button" id="useOriginalBtn" class="btn-original" style="display: none;">📝 Use Original</button>
+                            <button type="button" id="optimizePromptBtn" class="btn-optimize">🤖 优化提示词</button>
+                            <button type="button" id="translatePromptBtn" class="btn-translate">🌐 翻译提示词</button>
+                            <button type="button" id="useOriginalBtn" class="btn-original" style="display: none;">📝 使用原始提示词</button>
                         </div>
                     </div>
                     <div id="optimizationStatus" class="optimization-status" style="display: none;">
                         <div id="optimizationMessage"></div>
-                        <div id="optimizedPromptDisplay" class="optimized-prompt-display" style="display: none;">
-                            <strong>Optimized Prompt:</strong>
-                            <div id="optimizedPromptText" class="optimized-text"></div>
-                        </div>
+                        <div id="optimizedPromptText" class="optimized-text" style="display: none;"></div>
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="negativePrompt">Negative Prompt</label>
+                    <label for="negativePrompt">负向提示词</label>
                     <textarea id="negativePrompt" placeholder="What to avoid in the image...">blurry, low quality, distorted, ugly</textarea>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="size">Image Size</label>
+                        <label for="size">图片尺寸</label>
                         <select id="size">
                             <option value="512x512" selected>512x512</option>
                             <option value="912x512">912x512 (16:9)</option>
@@ -304,25 +301,25 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="numImages">Number of Images</label>
+                        <label for="numImages">图片数量</label>
                         <select id="numImages">
                             <option value="1" selected>1</option>
                             <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
+                            <!-- <option value="3">3</option>
+                            <option value="4">4</option> -->
                         </select>
                     </div>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="guidanceScale">Guidance Scale</label>
+                        <label for="guidanceScale">指导比例</label>
                         <input type="range" id="guidanceScale" min="1" max="20" step="0.5" value="5">
                         <span id="guidanceValue">5.0</span>
                     </div>
                     
                     <div class="form-group">
-                        <label for="steps">Inference Steps</label>
+                        <label for="steps">生成步数</label>
                         <input type="range" id="steps" min="10" max="100" step="5" value="20">
                         <span id="stepsValue">20</span>
                     </div>
@@ -330,20 +327,20 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="seed">Seed (Optional)</label>
+                        <label for="seed">种子 (可选)</label>
                         <input type="number" id="seed" placeholder="Leave empty for random seed" min="0" max="2147483647">
-                        <small style="color: #666; font-size: 12px;">Use the same seed to generate identical images</small>
+                        <!-- <small style="color: #666; font-size: 12px;">Use the same seed to generate identical images</small> -->
                     </div>
                     
                     <div class="form-group">
                         <label>&nbsp;</label>
-                        <button type="button" id="randomSeedBtn" class="btn-random">🎲 Random Seed</button>
+                        <button type="button" id="randomSeedBtn" class="btn-random">🎲 随机种子</button>
                     </div>
                 </div>
                 
                 <div class="form-group checkbox-group">
                     <input type="checkbox" id="streaming" checked>
-                    <label for="streaming">Enable Streaming (Real-time Updates)</label>
+                    <label for="streaming">启动流式生成</label>
                 </div>
             </form>
         </div>
@@ -351,7 +348,7 @@
         <!-- Right Panel - Images and Generation -->
         <div class="right-panel">
             <div class="header">
-                <h1>🖼️ Images</h1>
+                <h1>🖼️ 图片生成结果</h1>
             </div>
             
             <div class="content-area">
@@ -359,11 +356,11 @@
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
-                    <div class="progress-text" id="progressText">Initializing...</div>
+                    <div class="progress-text" id="progressText">初始化...</div>
                 </div>
                 
                 <div class="streaming-container" id="streamingContainer">
-                    <h3>🔄 Streaming Progress</h3>
+                    <h3>🔄 流式生成进度</h3>
                     <div id="streamingInfo"></div>
                 </div>
                 
@@ -375,7 +372,7 @@
             </div>
             
             <div class="generate-section">
-                <button type="submit" id="generateBtn" class="btn-primary">🚀 Generate Images</button>
+                <button type="submit" id="generateBtn" class="btn-primary">🚀 生成图片</button>
             </div>
         </div>
     </div>
@@ -402,7 +399,6 @@
         const useOriginalBtn = document.getElementById('useOriginalBtn');
         const optimizationStatus = document.getElementById('optimizationStatus');
         const optimizationMessage = document.getElementById('optimizationMessage');
-        const optimizedPromptDisplay = document.getElementById('optimizedPromptDisplay');
         const optimizedPromptText = document.getElementById('optimizedPromptText');
         
         // Store original prompt for restoration
@@ -474,10 +470,10 @@
                 numImagesGroup.parentNode.insertBefore(validationDiv, numImagesGroup.nextSibling);
                 
                 generateBtn.disabled = true;
-                generateBtn.textContent = '❌ Configuration Invalid';
+                generateBtn.textContent = '❌ 配置无效';
             } else {
                 generateBtn.disabled = false;
-                generateBtn.textContent = '🚀 Generate Images';
+                generateBtn.textContent = '🚀 生成图片';
             }
             
             return isValid;
@@ -492,10 +488,10 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/health`);
                 const health = await response.json();
-                apiStatus.textContent = health.workers_ready ? 'Ready ✅' : 'Loading... ⏳';
+                apiStatus.textContent = health.workers_ready ? '在线 ✅' : '加载中... ⏳';
                 apiStatus.style.color = health.workers_ready ? '#2e7d32' : '#f57c00';
             } catch (error) {
-                apiStatus.textContent = 'Offline ❌';
+                apiStatus.textContent = '离线 ❌';
                 apiStatus.style.color = '#d32f2f';
             }
         }
@@ -515,11 +511,11 @@
             
             // Show loading state
             optimizePromptBtn.disabled = true;
-            optimizePromptBtn.textContent = '🔄 Optimizing...';
+            optimizePromptBtn.textContent = '🔄 优化中...';
             optimizationStatus.style.display = 'block';
             optimizationStatus.className = 'optimization-status loading';
-            optimizationMessage.textContent = '🤖 AI is optimizing your prompt...';
-            optimizedPromptDisplay.style.display = 'none';
+            optimizationMessage.textContent = '🤖 正在优化提示词...';
+            optimizedPromptText.style.display = 'none';
             
             try {
                 const response = await fetch(`${API_BASE_URL}/v1/prompt/optimize`, {
@@ -544,11 +540,11 @@
                     
                     // Show success state
                     optimizationStatus.className = 'optimization-status success';
-                    optimizationMessage.textContent = '✅ Prompt optimized successfully!';
+                    optimizationMessage.textContent = '✅ 提示词优化成功!';
                     
                     // Display optimized prompt
-                    optimizedPromptText.textContent = optimizedPrompt;
-                    optimizedPromptDisplay.style.display = 'block';
+                    optimizedPromptText.innerHTML = `<strong>优化过的提示词:</strong><br>${optimizedPrompt}`;
+                    optimizedPromptText.style.display = 'block';
                     
                     // Show use original button
                     useOriginalBtn.style.display = 'block';
@@ -563,11 +559,11 @@
             } catch (error) {
                 console.error('Prompt optimization error:', error);
                 optimizationStatus.className = 'optimization-status error';
-                optimizationMessage.textContent = `❌ Optimization failed: ${error.message}`;
+                optimizationMessage.textContent = `❌ 提示词优化失败: ${error.message}`;
             } finally {
                 // Reset button state
                 optimizePromptBtn.disabled = false;
-                optimizePromptBtn.textContent = '🤖 Optimize Prompt';
+                optimizePromptBtn.textContent = '🤖 优化提示词';
             }
         }
         
@@ -577,7 +573,7 @@
             const currentPrompt = promptInput.value.trim();
             
             if (!currentPrompt) {
-                showOptimizationMessage('Please enter a prompt to translate.', 'error');
+                showOptimizationMessage('请输入提示词进行翻译。', 'error');
                 return;
             }
             
@@ -586,11 +582,11 @@
             
             // Show loading state
             translatePromptBtn.disabled = true;
-            translatePromptBtn.textContent = '🔄 Translating...';
+            translatePromptBtn.textContent = '🔄 翻译中...';
             optimizationStatus.style.display = 'block';
             optimizationStatus.className = 'optimization-status loading';
-            optimizationMessage.textContent = '🌐 AI is translating your prompt...';
-            optimizedPromptDisplay.style.display = 'none';
+            optimizationMessage.textContent = '🌐 正在翻译提示词...';
+            optimizedPromptText.style.display = 'none';
             
             try {
                 const response = await fetch(`${API_BASE_URL}/v1/prompt/translate`, {
@@ -615,11 +611,11 @@
                     
                     // Show success state
                     optimizationStatus.className = 'optimization-status success';
-                    optimizationMessage.textContent = '✅ Prompt translated successfully!';
+                    optimizationMessage.textContent = '✅ 提示词翻译成功!';
                     
                     // Display translated prompt
-                    optimizedPromptText.textContent = optimizedPrompt;
-                    optimizedPromptDisplay.style.display = 'block';
+                    optimizedPromptText.innerHTML = `<strong>翻译后的提示词:</strong><br>${optimizedPrompt}`;
+                    optimizedPromptText.style.display = 'block';
                     
                     // Show use original button
                     useOriginalBtn.style.display = 'block';
@@ -634,11 +630,11 @@
             } catch (error) {
                 console.error('Prompt translation error:', error);
                 optimizationStatus.className = 'optimization-status error';
-                optimizationMessage.textContent = `❌ Translation failed: ${error.message}`;
+                optimizationMessage.textContent = `❌ 提示词翻译失败: ${error.message}`;
             } finally {
                 // Reset button state
                 translatePromptBtn.disabled = false;
-                translatePromptBtn.textContent = '🌐 Translate Prompt';
+                translatePromptBtn.textContent = '🌐 翻译提示词';
             }
         }
         
@@ -646,10 +642,10 @@
         function restoreOriginalPrompt() {
             if (originalPrompt) {
                 document.getElementById('prompt').value = originalPrompt;
-                optimizedPromptDisplay.style.display = 'none';
+                optimizedPromptText.style.display = 'none';
                 useOriginalBtn.style.display = 'none';
                 optimizationStatus.className = 'optimization-status success';
-                optimizationMessage.textContent = '📝 Using original prompt';
+                optimizationMessage.textContent = '📝 使用原始提示词';
             }
         }
         
@@ -763,7 +759,7 @@
         // Handle regular generation
         async function handleRegularGeneration(formData) {
             try {
-                updateProgress(0, 'Sending request...');
+                updateProgress(0, '请求中...');
                 
                 const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
                     method: 'POST',
@@ -777,11 +773,11 @@
                     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
                 }
                 
-                updateProgress(50, 'Processing...');
+                updateProgress(50, '处理中...');
                 
                 const result = await response.json();
                 
-                updateProgress(100, 'Complete!');
+                updateProgress(100, '完成!');
                 
                 // Display images
                 result.data.forEach((imageData, index) => {
@@ -789,7 +785,7 @@
                     addImageToGrid(imageData.b64_json, `Image ${index + 1}`, imageData.seed);
                 });
                 
-                showSuccess(`Generated ${result.data.length} image(s) successfully!`);
+                showSuccess(`成功生成 ${result.data.length} 张图片!`);
                 
             } catch (error) {
                 console.error('Generation error:', error);
@@ -804,8 +800,8 @@
         // Handle streaming generation
         async function handleStreamingGeneration(formData) {
             try {
-                updateProgress(0, 'Connecting...');
-                streamingInfo.innerHTML = '<div>Starting generation...</div>';
+                updateProgress(0, '连线中...');
+                streamingInfo.innerHTML = '<div>开始生成...</div>';
                 
                 const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
                     method: 'POST',
@@ -847,9 +843,9 @@
                             const data = line.slice(6).trim();
                             
                             if (data === '[DONE]') {
-                                updateProgress(100, 'Generation complete!');
+                                updateProgress(100, '生成完成!');
                                 const finalImages = document.querySelectorAll('.final-image').length;
-                                showSuccess(`Streaming generation completed successfully! Generated ${finalImages} image(s).`);
+                                showSuccess(`流式生成完成! 成功生成 ${finalImages} 张图片.`);
                                 setTimeout(() => {
                                     progressContainer.style.display = 'none';
                                     streamingContainer.style.display = 'none';
@@ -868,7 +864,7 @@
                                 }
                                 
                                 const progress = (result.progress || 0) * 100;
-                                updateProgress(progress, `Step ${result.step}/${result.total_steps}`);
+                                updateProgress(progress, `生成步数 ${result.step}/${result.total_steps}`);
                                 
                                 // Handle chunked vs non-chunked images
                                 if (result.is_chunked) {
@@ -899,14 +895,14 @@
                                     
                                     // Update streaming info with chunk progress
                                     const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
-                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | Seed: ${result.seed}` : '';
+                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | 种子: ${result.seed}` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
-                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
-                                        <div><strong>Chunks:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
-                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
-                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
-                                        <div><strong>Status:</strong> Assembling image...${seedInfo}</div>
+                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
+                                        <div><strong>进度:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>分块:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
+                                        <div><strong>时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>最终图片:</strong> ${result.is_final ? '是' : '否'}</div>
+                                        <div><strong>状态:</strong> 组装图片中...${seedInfo}</div>
                                     `;
                                     
                                     // Check if we have all chunks
@@ -935,13 +931,13 @@
                                 } else {
                                     // Handle non-chunked complete image
                                     const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
-                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | Seed: ${result.seed}` : '';
+                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | 种子: ${result.seed}` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
-                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
-                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
-                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
-                                        <div><strong>Status:</strong> Image ready${seedInfo}</div>
+                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
+                                        <div><strong>进度:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>最终图片:</strong> ${result.is_final ? '是' : '否'}</div>
+                                        <div><strong>状态:</strong> 图片就绪${seedInfo}</div>
                                     `;
                                     
                                     if (result.image) {
@@ -996,12 +992,12 @@
                     info.className = 'image-info';
                     let infoText = '';
                     if (totalImages > 1) {
-                        infoText = `Image ${imageIndex + 1} - Step ${metadata.step}/${metadata.total_steps}`;
+                        infoText = `照片 ${imageIndex + 1} - 步数 ${metadata.step}/${metadata.total_steps}`;
                     } else {
-                        infoText = `Step ${metadata.step}/${metadata.total_steps}`;
+                        infoText = `步数 ${metadata.step}/${metadata.total_steps}`;
                     }
                     if (seed !== null && seed !== undefined) {
-                        infoText += ` | Seed: ${seed}`;
+                        infoText += ` | 种子: ${seed}`;
                     }
                     info.textContent = infoText;
                     
@@ -1026,12 +1022,12 @@
                 info.className = 'image-info';
                 let infoText = '';
                 if (totalImages > 1) {
-                    infoText = `Final Image ${imageIndex + 1} of ${totalImages}`;
+                    infoText = `最终图片 ${imageIndex + 1} of ${totalImages}`;
                 } else {
-                    infoText = 'Final Image';
+                    infoText = '最终图片';
                 }
                 if (seed !== null && seed !== undefined) {
-                    infoText += ` | Seed: ${seed}`;
+                    infoText += ` | 种子: ${seed}`;
                 }
                 info.textContent = infoText;
                 
