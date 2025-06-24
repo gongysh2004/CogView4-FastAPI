@@ -29,9 +29,10 @@
     - [1.9.2. Client Error Handling](#192-client-error-handling)
   - [1.10. API Endpoints](#110-api-endpoints)
     - [1.10.1. Image Generation](#1101-image-generation)
-    - [1.10.2. Health Check](#1102-health-check)
-    - [1.10.3. Status Information](#1103-status-information)
-    - [1.10.4. Web Client](#1104-web-client)
+    - [1.10.2. Prompt Optimization](#1102-prompt-optimization)
+    - [1.10.3. Health Check](#1103-health-check)
+    - [1.10.4. Status Information](#1104-status-information)
+    - [1.10.5. Web Client](#1105-web-client)
   - [1.11. Deployment Considerations](#111-deployment-considerations)
     - [1.11.1. Hardware Requirements](#1111-hardware-requirements)
     - [1.11.2. Environment Variables](#1112-environment-variables)
@@ -554,17 +555,59 @@ flowchart TD
 - **Streaming**: Server-Sent Events support
 - **Chunking**: Automatic for large images
 
-### 1.10.2. Health Check
+### 1.10.2. Prompt Optimization
+- **Endpoint**: `POST /v1/prompt/optimize`
+- **Purpose**: Optimize text prompts for better image generation
+- **Features**: AI-powered prompt enhancement with retry mechanism
+- **Input**: Original prompt and retry configuration
+- **Output**: Enhanced prompt with detailed descriptions
+
+**Request Format:**
+```json
+{
+  "prompt": "a cat sitting on a chair",
+  "retry_times": 5
+}
+```
+
+**Response Format:**
+```json
+{
+  "original_prompt": "a cat sitting on a chair",
+  "optimized_prompt": "A beautifully detailed digital illustration featuring a majestic orange tabby cat with fluffy fur and bright green eyes, sitting gracefully on a vintage wooden chair with intricate carvings. The cat's tail is curled elegantly around its body, and its whiskers are clearly visible. The chair has a warm, rich brown finish with visible wood grain. Soft, natural lighting illuminates the scene, creating gentle shadows and highlights on both the cat and the chair. The background is softly blurred, maintaining focus on the main subjects.",
+  "success": true,
+  "message": "Prompt optimized successfully"
+}
+```
+
+**Error Response:**
+```json
+{
+  "original_prompt": "invalid prompt",
+  "optimized_prompt": "invalid prompt",
+  "success": false,
+  "message": "Optimization failed: API connection error"
+}
+```
+
+**Features:**
+- **Bilingual Support**: Handles both English and Chinese prompts
+- **Detailed Enhancement**: Adds visual details, lighting, style, and composition
+- **Retry Mechanism**: Configurable retry attempts for reliability
+- **Error Handling**: Graceful fallback to original prompt on failure
+- **Fast Processing**: Typically completes within 2-5 seconds
+
+### 1.10.3. Health Check
 - **Endpoint**: `GET /health`
 - **Purpose**: Monitor worker pool and model status
 - **Real-time**: Updated as workers load models
 
-### 1.10.3. Status Information
+### 1.10.4. Status Information
 - **Endpoint**: `GET /status`
 - **Purpose**: Detailed server information
 - **Features**: Lists all capabilities and architecture
 
-### 1.10.4. Web Client
+### 1.10.5. Web Client
 - **Endpoint**: `GET /client.html`
 - **Purpose**: Interactive web interface
 - **Features**: Real-time streaming, chunk assembly, progress tracking

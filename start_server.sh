@@ -13,8 +13,6 @@ if ! command -v python &> /dev/null; then
     exit 1
 fi
 
-
-
 # Install dependencies if requirements.txt exists
 # if [ -f "requirements.txt" ]; then
 #     echo "📋 Installing dependencies..."
@@ -42,8 +40,8 @@ echo "   Device: $COGVIEW4_DEVICE"
 echo ""
 
 # Check if server file exists
-if [ ! -f "cogview4_api_server.py" ]; then
-    echo "❌ cogview4_api_server.py not found in current directory"
+if [ ! -f "run_server.py" ]; then
+    echo "❌ run_server.py not found in current directory"
     echo "   Please ensure all files are in the correct location"
     exit 1
 fi
@@ -57,7 +55,7 @@ echo "Press Ctrl+C to stop the server"
 echo "=================================="
 
 # Start the server
-python cogview4_api_server.py
+python run_server.py
 
 echo ""
 echo "👋 Server stopped" 

@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogView4 Image Generation Client</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Navigation -->
+        <div class="navigation" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+            <a href="gallery.html" class="nav-link" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border-radius: 25px; text-decoration: none; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                🖼️ 图片走廊
+            </a>
+        </div>
+        
+        <!-- Left Panel - Settings -->
+        <div class="left-panel">
+            <h1>🎨 CogView4 Settings</h1>
+            
+            <div class="api-info">
+                <strong>API Server:</strong> <span id="apiUrl">http://192.168.95.192:8000</span> | 
+                <strong>Status:</strong> <span id="apiStatus">Checking...</span>
+            </div>
+            
+            <form id="generateForm">
+                <div class="form-group">
+                    <label for="prompt">Prompt *</label>
+                    <div class="prompt-container">
+                        <textarea id="prompt" placeholder="Describe the image you want to generate..." required>A beautiful landscape with mountains and a lake at sunset</textarea>
+                        <div class="prompt-actions">
+                            <button type="button" id="optimizePromptBtn" class="optimize-btn">🤖 Optimize Prompt</button>
+                            <button type="button" id="translatePromptBtn" class="translate-btn">🌐 Translate Prompt</button>
+                            <button type="button" id="useOriginalBtn" class="use-original-btn" style="display: none;">📝 Use Original</button>
+                        </div>
+                    </div>
+                    <div id="optimizationStatus" class="optimization-status" style="display: none;">
+                        <div id="optimizationMessage"></div>
+                        <div id="optimizedPromptDisplay" class="optimized-prompt-display" style="display: none;">
+                            <strong>Optimized Prompt:</strong>
+                            <div id="optimizedPromptText" class="optimized-text"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="negativePrompt">Negative Prompt</label>
+                    <textarea id="negativePrompt" placeholder="What to avoid in the image...">blurry, low quality, distorted, ugly</textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="size">Image Size</label>
+                        <select id="size">
+                            <option value="512x512" selected>512x512</option>
+                            <option value="912x512">912x512 (16:9)</option>
+                            <option value="512x912">512x912 (9:16)</option>
+                            <option value="1024x1024">1024x1024</option>
+                            <option value="1280x720">1280x720 (16:9)</option>
+                            <option value="720x1280">720x1280 (9:16)</option>
+
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="numImages">Number of Images</label>
+                        <select id="numImages">
+                            <option value="1" selected>1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="guidanceScale">Guidance Scale</label>
+                        <input type="range" id="guidanceScale" min="1" max="20" step="0.5" value="5">
+                        <span id="guidanceValue">5.0</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="steps">Inference Steps</label>
+                        <input type="range" id="steps" min="10" max="100" step="5" value="20">
+                        <span id="stepsValue">20</span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="seed">Seed (Optional)</label>
+                        <input type="number" id="seed" placeholder="Leave empty for random seed" min="0" max="2147483647">
+                        <small style="color: #666; font-size: 12px;">Use the same seed to generate identical images</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button type="button" id="randomSeedBtn" style="width: 100%; padding: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 8px; cursor: pointer;">🎲 Random Seed</button>
+                    </div>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="streaming" checked>
+                    <label for="streaming">Enable Streaming (Real-time Updates)</label>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Right Panel - Images and Generation -->
+        <div class="right-panel">
+            <div class="header">
+                <h1>🖼️ Images</h1>
+            </div>
+            
+            <div class="content-area">
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Initializing...</div>
+                </div>
+                
+                <div class="streaming-container" id="streamingContainer">
+                    <h3>🔄 Streaming Progress</h3>
+                    <div id="streamingInfo"></div>
+                </div>
+                
+                <div class="results-container" id="resultsContainer">
+                    <div id="errorMessage"></div>
+                    <div id="successMessage"></div>
+                    <div class="image-grid" id="imageGrid"></div>
+                </div>
+            </div>
+            
+            <div class="generate-section">
+                <button type="submit" id="generateBtn">🚀 Generate Images</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://192.168.95.192:8000';
+        
+        // UI Elements
+        const form = document.getElementById('generateForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const streamingContainer = document.getElementById('streamingContainer');
+        const streamingInfo = document.getElementById('streamingInfo');
+        const imageGrid = document.getElementById('imageGrid');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const apiStatus = document.getElementById('apiStatus');
+        
+        // Prompt optimization elements
+        const optimizePromptBtn = document.getElementById('optimizePromptBtn');
+        const translatePromptBtn = document.getElementById('translatePromptBtn');
+        const useOriginalBtn = document.getElementById('useOriginalBtn');
+        const optimizationStatus = document.getElementById('optimizationStatus');
+        const optimizationMessage = document.getElementById('optimizationMessage');
+        const optimizedPromptDisplay = document.getElementById('optimizedPromptDisplay');
+        const optimizedPromptText = document.getElementById('optimizedPromptText');
+        
+        // Store original prompt for restoration
+        let originalPrompt = '';
+        let optimizedPrompt = '';
+        
+        // Range input updates
+        document.getElementById('guidanceScale').addEventListener('input', function() {
+            document.getElementById('guidanceValue').textContent = this.value;
+        });
+        
+        document.getElementById('steps').addEventListener('input', function() {
+            document.getElementById('stepsValue').textContent = this.value;
+        });
+        
+        // Random seed button
+        document.getElementById('randomSeedBtn').addEventListener('click', function() {
+            const randomSeed = Math.floor(Math.random() * 2147483647);
+            document.getElementById('seed').value = randomSeed;
+        });
+        
+        // Prompt optimization button
+        optimizePromptBtn.addEventListener('click', async function() {
+            await optimizePrompt();
+        });
+        
+        // Translate prompt button
+        translatePromptBtn.addEventListener('click', async function() {
+            await translatePrompt();
+        });
+        
+        // Use original prompt button
+        useOriginalBtn.addEventListener('click', function() {
+            restoreOriginalPrompt();
+        });
+        
+        // Size and number validation
+        const MAX_TOTAL_PIXELS = 1024 * 1024 * 4; // 4,194,304 pixels
+        
+        function parseSizeString(sizeStr) {
+            const [width, height] = sizeStr.split('x').map(Number);
+            return width * height;
+        }
+        
+        function validateSizeAndNumber() {
+            const sizeStr = document.getElementById('size').value;
+            const numImages = parseInt(document.getElementById('numImages').value);
+            
+            const pixelsPerImage = parseSizeString(sizeStr);
+            const totalPixels = pixelsPerImage * numImages;
+            
+            const isValid = totalPixels < MAX_TOTAL_PIXELS;
+            const generateBtn = document.getElementById('generateBtn');
+            
+            // Clear any existing validation message
+            const existingValidation = document.querySelector('.validation-message');
+            if (existingValidation) {
+                existingValidation.remove();
+            }
+            
+            if (!isValid) {
+                // Add validation error message
+                const validationDiv = document.createElement('div');
+                validationDiv.className = 'validation-message error';
+                validationDiv.innerHTML = `❌ Total pixel count (${totalPixels.toLocaleString()}) exceeds maximum allowed (${MAX_TOTAL_PIXELS.toLocaleString()}). Please reduce image size or number of images.`;
+                
+                // Insert after the numImages form group
+                const numImagesGroup = document.getElementById('numImages').closest('.form-group');
+                numImagesGroup.parentNode.insertBefore(validationDiv, numImagesGroup.nextSibling);
+                
+                generateBtn.disabled = true;
+                generateBtn.textContent = '❌ Configuration Invalid';
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🚀 Generate Images';
+            }
+            
+            return isValid;
+        }
+        
+        // Add event listeners for real-time validation
+        document.getElementById('size').addEventListener('change', validateSizeAndNumber);
+        document.getElementById('numImages').addEventListener('change', validateSizeAndNumber);
+        
+        // Check API health on load
+        async function checkApiHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const health = await response.json();
+                apiStatus.textContent = health.workers_ready ? 'Ready ✅' : 'Loading... ⏳';
+                apiStatus.style.color = health.workers_ready ? '#2e7d32' : '#f57c00';
+            } catch (error) {
+                apiStatus.textContent = 'Offline ❌';
+                apiStatus.style.color = '#d32f2f';
+            }
+        }
+        
+        // Optimize prompt using the API
+        async function optimizePrompt() {
+            const promptInput = document.getElementById('prompt');
+            const currentPrompt = promptInput.value.trim();
+            
+            if (!currentPrompt) {
+                showOptimizationMessage('Please enter a prompt to optimize.', 'error');
+                return;
+            }
+            
+            // Store original prompt
+            originalPrompt = currentPrompt;
+            
+            // Show loading state
+            optimizePromptBtn.disabled = true;
+            optimizePromptBtn.textContent = '🔄 Optimizing...';
+            optimizationStatus.style.display = 'block';
+            optimizationStatus.className = 'optimization-status loading';
+            optimizationMessage.textContent = '🤖 AI is optimizing your prompt...';
+            optimizedPromptDisplay.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/prompt/optimize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: currentPrompt,
+                        retry_times: 5
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    optimizedPrompt = result.optimized_prompt;
+                    
+                    // Show success state
+                    optimizationStatus.className = 'optimization-status success';
+                    optimizationMessage.textContent = '✅ Prompt optimized successfully!';
+                    
+                    // Display optimized prompt
+                    optimizedPromptText.textContent = optimizedPrompt;
+                    optimizedPromptDisplay.style.display = 'block';
+                    
+                    // Show use original button
+                    useOriginalBtn.style.display = 'block';
+                    
+                    // Update the prompt input with optimized version
+                    promptInput.value = optimizedPrompt;
+                    
+                } else {
+                    throw new Error(result.message || 'Optimization failed');
+                }
+                
+            } catch (error) {
+                console.error('Prompt optimization error:', error);
+                optimizationStatus.className = 'optimization-status error';
+                optimizationMessage.textContent = `❌ Optimization failed: ${error.message}`;
+            } finally {
+                // Reset button state
+                optimizePromptBtn.disabled = false;
+                optimizePromptBtn.textContent = '🤖 Optimize Prompt';
+            }
+        }
+        
+        // Translate prompt using the API
+        async function translatePrompt() {
+            const promptInput = document.getElementById('prompt');
+            const currentPrompt = promptInput.value.trim();
+            
+            if (!currentPrompt) {
+                showOptimizationMessage('Please enter a prompt to translate.', 'error');
+                return;
+            }
+            
+            // Store original prompt
+            originalPrompt = currentPrompt;
+            
+            // Show loading state
+            translatePromptBtn.disabled = true;
+            translatePromptBtn.textContent = '🔄 Translating...';
+            optimizationStatus.style.display = 'block';
+            optimizationStatus.className = 'optimization-status loading';
+            optimizationMessage.textContent = '🌐 AI is translating your prompt...';
+            optimizedPromptDisplay.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/prompt/translate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: currentPrompt,
+                        retry_times: 5
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    optimizedPrompt = result.translated_prompt;
+                    
+                    // Show success state
+                    optimizationStatus.className = 'optimization-status success';
+                    optimizationMessage.textContent = '✅ Prompt translated successfully!';
+                    
+                    // Display translated prompt
+                    optimizedPromptText.textContent = optimizedPrompt;
+                    optimizedPromptDisplay.style.display = 'block';
+                    
+                    // Show use original button
+                    useOriginalBtn.style.display = 'block';
+                    
+                    // Update the prompt input with translated version
+                    promptInput.value = optimizedPrompt;
+                    
+                } else {
+                    throw new Error(result.message || 'Translation failed');
+                }
+                
+            } catch (error) {
+                console.error('Prompt translation error:', error);
+                optimizationStatus.className = 'optimization-status error';
+                optimizationMessage.textContent = `❌ Translation failed: ${error.message}`;
+            } finally {
+                // Reset button state
+                translatePromptBtn.disabled = false;
+                translatePromptBtn.textContent = '🌐 Translate Prompt';
+            }
+        }
+        
+        // Restore original prompt
+        function restoreOriginalPrompt() {
+            if (originalPrompt) {
+                document.getElementById('prompt').value = originalPrompt;
+                optimizedPromptDisplay.style.display = 'none';
+                useOriginalBtn.style.display = 'none';
+                optimizationStatus.className = 'optimization-status success';
+                optimizationMessage.textContent = '📝 Using original prompt';
+            }
+        }
+        
+        // Show optimization message
+        function showOptimizationMessage(message, type = 'info') {
+            optimizationStatus.style.display = 'block';
+            optimizationStatus.className = `optimization-status ${type}`;
+            optimizationMessage.textContent = message;
+        }
+        
+        // Clear messages
+        function clearMessages() {
+            errorMessage.innerHTML = '';
+            successMessage.innerHTML = '';
+        }
+        
+        // Show error message
+        function showError(message) {
+            errorMessage.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            successMessage.innerHTML = `<div class="success">✅ ${message}</div>`;
+        }
+        
+        // Update progress
+        function updateProgress(progress, text) {
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = text;
+        }
+        
+        // Add image to grid
+        function addImageToGrid(imageData, info = '', seed = null) {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item';
+            
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${imageData}`;
+            img.alt = 'Generated Image';
+            
+            const imageInfo = document.createElement('div');
+            imageInfo.className = 'image-info';
+            let infoText = info;
+            if (seed !== null) {
+                infoText += ` | Seed: ${seed}`;
+            }
+            imageInfo.textContent = infoText;
+            
+            // 添加发布到图片走廊的按钮
+            const publishBtn = document.createElement('button');
+            publishBtn.className = 'publish-btn';
+            publishBtn.innerHTML = '📤 发布到图片走廊';
+            publishBtn.onclick = () => publishToGallery(imageData, seed);
+            
+            imageItem.appendChild(img);
+            imageItem.appendChild(imageInfo);
+            imageItem.appendChild(publishBtn);
+            imageGrid.appendChild(imageItem);
+        }
+        
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await handleGeneration();
+        });
+        
+        // Handle button click (since button is now outside the form)
+        generateBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            await handleGeneration();
+        });
+        
+        // Common generation handler
+        async function handleGeneration() {
+            // Validate size and number before proceeding
+            if (!validateSizeAndNumber()) {
+                showError('Please fix the configuration errors before generating images.');
+                return;
+            }
+            
+            clearMessages();
+            imageGrid.innerHTML = '';
+            
+            const formData = {
+                prompt: document.getElementById('prompt').value,
+                negative_prompt: document.getElementById('negativePrompt').value || null,
+                size: document.getElementById('size').value,
+                n: parseInt(document.getElementById('numImages').value),
+                guidance_scale: parseFloat(document.getElementById('guidanceScale').value),
+                num_inference_steps: parseInt(document.getElementById('steps').value),
+                stream: document.getElementById('streaming').checked,
+                response_format: 'b64_json',
+                seed: document.getElementById('seed').value ? parseInt(document.getElementById('seed').value) : null
+            };
+            
+            generateBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            
+            if (formData.stream) {
+                streamingContainer.style.display = 'block';
+                await handleStreamingGeneration(formData);
+            } else {
+                streamingContainer.style.display = 'none';
+                await handleRegularGeneration(formData);
+            }
+            
+            generateBtn.disabled = false;
+        }
+        
+        // Handle regular generation
+        async function handleRegularGeneration(formData) {
+            try {
+                updateProgress(0, 'Sending request...');
+                
+                const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                updateProgress(50, 'Processing...');
+                
+                const result = await response.json();
+                
+                updateProgress(100, 'Complete!');
+                
+                // Display images
+                result.data.forEach((imageData, index) => {
+                    console.info("image seed: ${imageData.seed}")
+                    addImageToGrid(imageData.b64_json, `Image ${index + 1}`, imageData.seed);
+                });
+                
+                showSuccess(`Generated ${result.data.length} image(s) successfully!`);
+                
+            } catch (error) {
+                console.error('Generation error:', error);
+                showError(`Generation failed: ${error.message}`);
+            } finally {
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 2000);
+            }
+        }
+        
+        // Handle streaming generation
+        async function handleStreamingGeneration(formData) {
+            try {
+                updateProgress(0, 'Connecting...');
+                streamingInfo.innerHTML = '<div>Starting generation...</div>';
+                
+                const response = await fetch(`${API_BASE_URL}/v1/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                let intermediateCounters = {}; // Track counters per image
+                let buffer = ''; // Buffer to accumulate incomplete chunks
+                
+                // Storage for assembling chunked images
+                const chunkStorage = {};
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    // Add new chunk to buffer
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Split by lines and process complete lines
+                    const lines = buffer.split('\n');
+                    
+                    // Keep the last potentially incomplete line in the buffer
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            
+                            if (data === '[DONE]') {
+                                updateProgress(100, 'Generation complete!');
+                                const finalImages = document.querySelectorAll('.final-image').length;
+                                showSuccess(`Streaming generation completed successfully! Generated ${finalImages} image(s).`);
+                                setTimeout(() => {
+                                    progressContainer.style.display = 'none';
+                                    streamingContainer.style.display = 'none';
+                                }, 3000);
+                                return;
+                            }
+                            
+                            // Skip empty data lines
+                            if (!data) continue;
+                            
+                            try {
+                                const result = JSON.parse(data);
+                                
+                                if (result.error) {
+                                    throw new Error(result.error);
+                                }
+                                
+                                const progress = (result.progress || 0) * 100;
+                                updateProgress(progress, `Step ${result.step}/${result.total_steps}`);
+                                
+                                // Handle chunked vs non-chunked images
+                                if (result.is_chunked) {
+                                    // Handle chunked image data
+                                    const chunkId = result.chunk_id;
+                                    const chunkIndex = result.chunk_index;
+                                    const totalChunks = result.total_chunks;
+                                    
+                                    // Initialize storage for this chunk sequence
+                                    if (!chunkStorage[chunkId]) {
+                                        chunkStorage[chunkId] = {
+                                            chunks: {},
+                                            totalChunks: totalChunks,
+                                            metadata: {
+                                                step: result.step,
+                                                total_steps: result.total_steps,
+                                                progress: result.progress,
+                                                is_final: result.is_final,
+                                                timestamp: result.timestamp,
+                                                image_index: result.image_index,
+                                                total_images: result.total_images
+                                            }
+                                        };
+                                    }
+                                    
+                                    // Store this chunk
+                                    chunkStorage[chunkId].chunks[chunkIndex] = result.image;
+                                    
+                                    // Update streaming info with chunk progress
+                                    const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
+                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | Seed: ${result.seed}` : '';
+                                    streamingInfo.innerHTML = `
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
+                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>Chunks:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
+                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
+                                        <div><strong>Status:</strong> Assembling image...${seedInfo}</div>
+                                    `;
+                                    
+                                    // Check if we have all chunks
+                                    if (Object.keys(chunkStorage[chunkId].chunks).length === totalChunks) {
+                                        // Reassemble the complete image
+                                        let completeImage = '';
+                                        for (let i = 0; i < totalChunks; i++) {
+                                            completeImage += chunkStorage[chunkId].chunks[i];
+                                        }
+                                        
+                                        // Initialize counter for this image if needed
+                                        const imageIndex = chunkStorage[chunkId].metadata.image_index;
+                                        if (!intermediateCounters[imageIndex]) {
+                                            intermediateCounters[imageIndex] = 0;
+                                        }
+                                        chunkStorage[chunkId].metadata.seed = result.seed
+
+                                        // Process the complete image
+                                        intermediateCounters[imageIndex] = processCompleteImage(completeImage, chunkStorage[chunkId].metadata, intermediateCounters[imageIndex]);
+
+                                        // Clean up storage
+                                        delete chunkStorage[chunkId];
+                                        
+                                        console.log(`Reassembled chunked image for step ${result.step} from ${totalChunks} chunks`);
+                                    }
+                                } else {
+                                    // Handle non-chunked complete image
+                                    const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
+                                    const seedInfo = result.seed !== null && result.seed !== undefined ? ` | Seed: ${result.seed}` : '';
+                                    streamingInfo.innerHTML = `
+                                        <div><strong>Step:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
+                                        <div><strong>Progress:</strong> ${progress.toFixed(1)}%</div>
+                                        <div><strong>Time:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
+                                        <div><strong>Final:</strong> ${result.is_final ? 'Yes' : 'No'}</div>
+                                        <div><strong>Status:</strong> Image ready${seedInfo}</div>
+                                    `;
+                                    
+                                    if (result.image) {
+                                        // Initialize counter for this image if needed
+                                        const imageIndex = result.image_index || 0;
+                                        if (!intermediateCounters[imageIndex]) {
+                                            intermediateCounters[imageIndex] = 0;
+                                        }
+                                        
+                                        intermediateCounters[imageIndex] = processCompleteImage(result.image, result, intermediateCounters[imageIndex]);
+                                    }
+                                }
+                                
+                            } catch (parseError) {
+                                console.error('Error parsing streaming data:', parseError);
+                                console.error('Problematic data:', data);
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Streaming error:', error);
+                showError(`Streaming failed: ${error.message}`);
+                progressContainer.style.display = 'none';
+                streamingContainer.style.display = 'none';
+            }
+        }
+        
+        // Process complete image (chunked or non-chunked)
+        function processCompleteImage(imageData, metadata, intermediateCount) {
+            const imageIndex = metadata.image_index || 0;
+            const totalImages = metadata.total_images || 1;
+            const seed = metadata.seed;
+            
+            if (!metadata.is_final && metadata.step < metadata.total_steps) {
+                // Intermediate image - show with reduced opacity for each image
+                if (intermediateCount % 3 === 0) { // Show every third intermediate to reduce clutter
+                    const existingIntermediate = document.querySelector(`.intermediate-image-${imageIndex}`);
+                    if (existingIntermediate) {
+                        existingIntermediate.remove();
+                    }
+                    
+                    const tempDiv = document.createElement('div');
+                    tempDiv.className = `image-item intermediate-image intermediate-image-${imageIndex}`;
+                    
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${imageData}`;
+                    img.alt = `Intermediate Image ${imageIndex + 1}`;
+                    
+                    const info = document.createElement('div');
+                    info.className = 'image-info';
+                    let infoText = '';
+                    if (totalImages > 1) {
+                        infoText = `Image ${imageIndex + 1} - Step ${metadata.step}/${metadata.total_steps}`;
+                    } else {
+                        infoText = `Step ${metadata.step}/${metadata.total_steps}`;
+                    }
+                    if (seed !== null && seed !== undefined) {
+                        infoText += ` | Seed: ${seed}`;
+                    }
+                    info.textContent = infoText;
+                    
+                    tempDiv.appendChild(img);
+                    tempDiv.appendChild(info);
+                    imageGrid.appendChild(tempDiv);
+                }
+                intermediateCount++;
+            } else {
+                // Final image - add with image index tracking
+                console.log(`Adding final image ${imageIndex + 1}/${totalImages}`);
+                
+                // Add final image with unique identifier
+                const finalImageDiv = document.createElement('div');
+                finalImageDiv.className = `image-item final-image final-image-${imageIndex}`;
+                
+                const img = document.createElement('img');
+                img.src = `data:image/png;base64,${imageData}`;
+                img.alt = `Final Generated Image ${imageIndex + 1}`;
+                
+                const info = document.createElement('div');
+                info.className = 'image-info';
+                let infoText = '';
+                if (totalImages > 1) {
+                    infoText = `Final Image ${imageIndex + 1} of ${totalImages}`;
+                } else {
+                    infoText = 'Final Image';
+                }
+                if (seed !== null && seed !== undefined) {
+                    infoText += ` | Seed: ${seed}`;
+                }
+                info.textContent = infoText;
+                
+                // 添加发布到图片走廊的按钮
+                const publishBtn = document.createElement('button');
+                publishBtn.className = 'publish-btn';
+                publishBtn.innerHTML = '📤 发布到图片走廊';
+                publishBtn.onclick = () => publishToGallery(imageData, seed);
+                
+                finalImageDiv.appendChild(img);
+                finalImageDiv.appendChild(info);
+                finalImageDiv.appendChild(publishBtn);
+                imageGrid.appendChild(finalImageDiv);
+                
+                // Remove corresponding intermediate image when final image arrives
+                const intermediate = document.querySelector(`.intermediate-image-${imageIndex}`);
+                if (intermediate) {
+                    intermediate.remove();
+                }
+            }
+            return intermediateCount;
+        }
+        
+        // Initialize
+        checkApiHealth();
+        setInterval(checkApiHealth, 30000); // Check every 30 seconds
+        
+        // Run initial validation
+        validateSizeAndNumber();
+        
+        // Parse URL parameters and fill form if coming from gallery
+        function parseUrlParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            const prompt = urlParams.get('prompt');
+            const size = urlParams.get('size');
+            const seed = urlParams.get('seed');
+            const negativePrompt = urlParams.get('negative_prompt');
+            
+            if (prompt) {
+                document.getElementById('prompt').value = prompt;
+                showSuccess('✅ 已从图片走廊加载参数');
+            }
+            
+            if (size) {
+                const sizeSelect = document.getElementById('size');
+                const sizeOption = Array.from(sizeSelect.options).find(option => option.value === size);
+                if (sizeOption) {
+                    sizeSelect.value = size;
+                }
+            }
+            
+            if (seed) {
+                document.getElementById('seed').value = seed;
+            }
+            
+            if (negativePrompt) {
+                document.getElementById('negativePrompt').value = negativePrompt;
+            }
+            
+            // Clear URL parameters after loading
+            if (prompt || size || seed || negativePrompt) {
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }
+        
+        // Call URL parameter parsing on page load
+        parseUrlParameters();
+        
+        // 发布图片到图片走廊
+        async function publishToGallery(imageData, seed = null) {
+            if (seed === null || seed === undefined) {
+                showError('❌ Seed is missing! Cannot publish to gallery without a seed.');
+                console.error('Seed is missing when publishing to gallery. This should not happen.');
+                return;
+            }
+            try {
+                // 压缩图片数据
+                const compressedImageData = await compressImage(imageData);
+                
+                // 获取当前表单参数
+                const prompt = document.getElementById('prompt').value;
+                const negativePrompt = document.getElementById('negativePrompt').value || '';
+                const size = document.getElementById('size').value;
+                const guidanceScale = parseFloat(document.getElementById('guidanceScale').value);
+                const numInferenceSteps = parseInt(document.getElementById('steps').value);
+                
+                // 准备请求数据
+                const requestData = {
+                    image_data: compressedImageData,
+                    prompt: prompt,
+                    negative_prompt: negativePrompt,
+                    size: size,
+                    seed: seed,
+                    guidance_scale: guidanceScale,
+                    num_inference_steps: numInferenceSteps
+                };
+                
+                // 发送请求到API
+                const response = await fetch(`${API_BASE_URL}/v1/gallery/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`✅ 图片已成功发布到图片走廊！ID: ${result.image_id}, Seed: ${seed}`);
+                    
+                    // 禁用已发布的按钮
+                    const publishBtns = document.querySelectorAll('.publish-btn');
+                    publishBtns.forEach(btn => {
+                        if (btn.innerHTML.includes('📤 发布到图片走廊')) {
+                            btn.innerHTML = '✅ 已发布';
+                            btn.disabled = true;
+                            btn.style.background = '#28a745';
+                            btn.style.cursor = 'not-allowed';
+                        }
+                    });
+                } else {
+                    throw new Error(result.message || '发布失败');
+                }
+                
+            } catch (error) {
+                console.error('发布到图片走廊失败:', error);
+                showError(`❌ 发布失败: ${error.message}`);
+            }
+        }
+        
+        // 图片压缩函数
+        async function compressImage(base64Data, quality = 0.7, maxWidth = 512) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // 创建图片对象
+                    const img = new Image();
+                    img.onload = function() {
+                        // 创建canvas
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 计算新的尺寸
+                        let { width, height } = img;
+                        
+                        // 如果图片宽度超过最大宽度，按比例缩放
+                        if (width > maxWidth) {
+                            const ratio = maxWidth / width;
+                            width = maxWidth;
+                            height = Math.round(height * ratio);
+                        }
+                        
+                        // 设置canvas尺寸
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        // 绘制图片到canvas
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 转换为压缩后的base64
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // 移除data:image/jpeg;base64,前缀
+                        const base64Data = compressedBase64.split(',')[1];
+                        
+                        console.log(`图片压缩完成: 原始尺寸 -> ${img.width}x${img.height}, 压缩后 -> ${width}x${height}, 质量: ${quality}`);
+                        
+                        resolve(base64Data);
+                    };
+                    
+                    img.onerror = function() {
+                        reject(new Error('图片加载失败'));
+                    };
+                    
+                    // 设置图片源
+                    img.src = `data:image/png;base64,${base64Data}`;
+                    
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+    </script>
+</body>
+</html> 

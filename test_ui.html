@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Test - Prompt Optimization</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <div class="left-panel">
+            <h1>🎨 UI Test</h1>
+            
+            <div class="form-group">
+                <label for="prompt">Prompt *</label>
+                <div class="prompt-container">
+                    <textarea id="prompt" placeholder="Describe the image you want to generate..." required>A beautiful landscape with mountains and a lake at sunset</textarea>
+                    <div class="prompt-actions">
+                        <button type="button" id="optimizePromptBtn" class="optimize-btn">🤖 Optimize Prompt</button>
+                        <button type="button" id="useOriginalBtn" class="use-original-btn" style="display: none;">📝 Use Original</button>
+                    </div>
+                </div>
+                <div id="optimizationStatus" class="optimization-status" style="display: none;">
+                    <div id="optimizationMessage"></div>
+                    <div id="optimizedPromptDisplay" class="optimized-prompt-display" style="display: none;">
+                        <strong>Optimized Prompt:</strong>
+                        <div id="optimizedPromptText" class="optimized-text"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="negativePrompt">Negative Prompt</label>
+                <textarea id="negativePrompt" placeholder="What to avoid in the image...">blurry, low quality, distorted, ugly</textarea>
+            </div>
+            
+            <button type="button" onclick="testOptimization()">Test Optimization</button>
+        </div>
+        
+        <div class="right-panel">
+            <div class="header">
+                <h1>🖼️ Preview</h1>
+            </div>
+            <div class="content-area">
+                <p>This is a test page to verify the UI layout and prompt optimization functionality.</p>
+                <p>Check that:</p>
+                <ul>
+                    <li>Main prompt textarea is longer (120px height)</li>
+                    <li>Negative prompt textarea is shorter (60px height)</li>
+                    <li>Optimization buttons are properly styled</li>
+                    <li>Optimization status area displays correctly</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testOptimization() {
+            const status = document.getElementById('optimizationStatus');
+            const message = document.getElementById('optimizationMessage');
+            const display = document.getElementById('optimizedPromptDisplay');
+            const text = document.getElementById('optimizedPromptText');
+            const useOriginalBtn = document.getElementById('useOriginalBtn');
+            
+            // Show loading state
+            status.style.display = 'block';
+            status.className = 'optimization-status loading';
+            message.textContent = '🤖 AI is optimizing your prompt...';
+            display.style.display = 'none';
+            
+            // Simulate optimization after 2 seconds
+            setTimeout(() => {
+                status.className = 'optimization-status success';
+                message.textContent = '✅ Prompt optimized successfully!';
+                
+                text.textContent = 'In this breathtaking scene, a majestic mountain range towers over a pristine alpine lake, their reflections perfectly mirrored in the crystal-clear water. The setting sun casts a warm golden glow across the landscape, painting the sky in brilliant hues of orange, pink, and purple. The mountains are covered in lush evergreen forests, and the lake is surrounded by wildflowers and tall grasses. The entire composition captures the serene beauty of nature at its most peaceful moment.';
+                display.style.display = 'block';
+                useOriginalBtn.style.display = 'block';
+            }, 2000);
+        }
+    </script>
+</body>
+</html> 

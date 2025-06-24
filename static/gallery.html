@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogView4 图片走廊</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 确保页面可以正常滚动 */
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-y: auto;
+            background: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        .gallery-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-top: 80px; /* 为固定导航留出空间 */
+            box-sizing: border-box;
+            min-height: 100vh;
+        }
+        
+        .gallery-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .gallery-header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .gallery-header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .gallery-grid {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: flex-start;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .gallery-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0; /* 防止flex项目溢出 */
+            width: calc(25% - 15px); /* 确保4列等宽 */
+            box-sizing: border-box;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .gallery-grid {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            .gallery-column {
+                flex: 1 1 calc(50% - 7.5px);
+                width: calc(50% - 7.5px); /* 2列等宽 */
+                min-width: 300px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .gallery-container {
+                padding: 15px;
+                padding-top: 70px;
+            }
+            .gallery-grid {
+                gap: 15px;
+            }
+            .gallery-column {
+                flex: 1 1 100%;
+                width: 100%; /* 1列全宽 */
+            }
+        }
+        
+        .gallery-item {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            width: 100%;
+        }
+        
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .gallery-image {
+            width: 100%;
+            height: auto; /* 让高度自适应 */
+            aspect-ratio: 4/3; /* 使用4:3的宽高比，更适合大多数图片 */
+            object-fit: cover;
+            cursor: pointer;
+            display: block; /* 确保图片正确显示 */
+        }
+        
+        /* 为不同尺寸的图片设置不同的宽高比 */
+        .gallery-item[data-size*="x"] .gallery-image {
+            aspect-ratio: auto; /* 根据实际尺寸自动调整 */
+        }
+        
+        /* 特定尺寸的图片使用固定比例 */
+        .gallery-item[data-size="512x512"] .gallery-image,
+        .gallery-item[data-size="1024x1024"] .gallery-image {
+            aspect-ratio: 1; /* 正方形图片 */
+        }
+        
+        .gallery-item[data-size="912x512"] .gallery-image,
+        .gallery-item[data-size="1280x720"] .gallery-image {
+            aspect-ratio: 16/9; /* 宽屏图片 */
+        }
+        
+        .gallery-item[data-size="512x912"] .gallery-image,
+        .gallery-item[data-size="720x1280"] .gallery-image {
+            aspect-ratio: 9/16; /* 竖屏图片 */
+        }
+        
+        .gallery-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .gallery-item:hover .gallery-overlay {
+            opacity: 1;
+        }
+        
+        .gallery-prompt {
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 15px;
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+        
+        .gallery-info {
+            font-size: 12px;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+        
+        .generate-same-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .generate-same-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .gallery-item-info {
+            padding: 15px;
+        }
+        
+        .gallery-item-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .gallery-item-details {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .gallery-item-detail {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .gallery-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .gallery-control-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .gallery-control-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        
+        .gallery-control-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-gallery {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-gallery h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .back-to-generator {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-to-generator:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* 固定导航样式 */
+        .navigation {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .nav-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            display: inline-block;
+        }
+        
+        .nav-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="gallery-container">
+        <!-- Navigation -->
+        <div class="navigation">
+            <a href="index.html" class="nav-link">
+                🎨 生成图片
+            </a>
+        </div>
+        
+        <div class="gallery-header">
+            <h1>🖼️ 图片走廊</h1>
+            <p>浏览已生成的图片，点击"生成同款"快速创建相似图片</p>
+        </div>
+        
+        <div class="gallery-controls">
+            <button class="gallery-control-btn active" data-filter="all">全部图片</button>
+            <button class="gallery-control-btn" data-filter="recent">最近生成</button>
+            <button class="gallery-control-btn" data-filter="popular">热门图片</button>
+        </div>
+        
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner"></div>
+            <p>正在加载图片...</p>
+        </div>
+        
+        <div class="gallery-grid" id="galleryGrid">
+            <!-- 图片将通过JavaScript动态加载 -->
+        </div>
+        
+        <div class="empty-gallery" id="emptyGallery" style="display: none;">
+            <h3>暂无图片</h3>
+            <p>还没有生成的图片，快去创建你的第一张图片吧！</p>
+            <a href="index.html" class="back-to-generator">开始生成图片</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://192.168.95.192:8000';
+        let galleryData = [];
+        let currentFilter = 'all';
+        
+        // DOM elements
+        const galleryGrid = document.getElementById('galleryGrid');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const emptyGallery = document.getElementById('emptyGallery');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGalleryData();
+            setupEventListeners();
+        });
+        
+        // 添加窗口大小改变监听
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                if (galleryData.length > 0) {
+                    filterAndDisplayGallery();
+                }
+            }, 300);
+        });
+        
+        function setupEventListeners() {
+            // 筛选按钮事件
+            document.querySelectorAll('.gallery-control-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.gallery-control-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    filterAndDisplayGallery();
+                });
+            });
+        }
+        
+        async function loadGalleryData() {
+            showLoading(true);
+            
+            try {
+                // 调用真实的API获取图片数据
+                const response = await fetch(`${API_BASE_URL}/v1/gallery`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    galleryData = result.images.map(img => ({
+                        id: img.id,
+                        imageUrl: img.image_url,
+                        prompt: img.prompt,
+                        size: img.size,
+                        seed: img.seed,
+                        timestamp: img.timestamp * 1000, // 转换为毫秒
+                        negativePrompt: img.negative_prompt || ''
+                    }));
+                } else {
+                    throw new Error('Failed to load gallery data');
+                }
+                
+                filterAndDisplayGallery();
+            } catch (error) {
+                console.error('加载图片走廊失败:', error);
+                showEmptyGallery();
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function filterAndDisplayGallery() {
+            let filteredData = galleryData;
+            
+            // 根据筛选条件过滤数据
+            switch (currentFilter) {
+                case 'recent':
+                    filteredData = galleryData.filter(item => 
+                        Date.now() - item.timestamp < 24 * 60 * 60 * 1000 // 24小时内
+                    );
+                    break;
+                case 'popular':
+                    // 这里可以根据实际需求实现热门逻辑
+                    filteredData = galleryData.slice(0, 3);
+                    break;
+                default:
+                    filteredData = galleryData;
+            }
+            
+            displayGallery(filteredData);
+        }
+        
+        function displayGallery(data) {
+            if (data.length === 0) {
+                showEmptyGallery();
+                return;
+            }
+            
+            galleryGrid.innerHTML = '';
+            
+            // 根据屏幕尺寸确定列数
+            const getColumnCount = () => {
+                if (window.innerWidth <= 768) return 1;
+                if (window.innerWidth <= 1200) return 2;
+                return 4;
+            };
+            
+            const columnCount = getColumnCount();
+            
+            // 创建列
+            const columns = [];
+            for (let i = 0; i < columnCount; i++) {
+                const column = document.createElement('div');
+                column.className = 'gallery-column';
+                columns.push(column);
+                galleryGrid.appendChild(column);
+            }
+            
+            // 将图片平均分配到列中
+            data.forEach((item, index) => {
+                const columnIndex = index % columnCount;
+                const galleryItem = createGalleryItem(item);
+                columns[columnIndex].appendChild(galleryItem);
+            });
+            
+            emptyGallery.style.display = 'none';
+            galleryGrid.style.display = 'flex';
+        }
+        
+        function createGalleryItem(item) {
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.setAttribute('data-size', item.size); // 添加尺寸属性
+            
+            const timeAgo = getTimeAgo(item.timestamp);
+            
+            div.innerHTML = `
+                <img src="${item.imageUrl}" alt="Generated Image" class="gallery-image">
+                <div class="gallery-overlay">
+                    <div class="gallery-prompt">${item.prompt}</div>
+                    <div class="gallery-info">
+                        <div>尺寸: ${item.size}</div>
+                        <div>Seed: ${item.seed}</div>
+                        <div>${timeAgo}</div>
+                    </div>
+                    <a href="index.html?prompt=${encodeURIComponent(item.prompt)}&size=${item.size}&seed=${item.seed}&negative_prompt=${encodeURIComponent(item.negativePrompt)}" 
+                       class="generate-same-btn">生成同款</a>
+                </div>
+                <div class="gallery-item-info">
+                    <div class="gallery-item-title">${item.prompt.substring(0, 50)}${item.prompt.length > 50 ? '...' : ''}</div>
+                    <div class="gallery-item-details">
+                        <span class="gallery-item-detail">
+                            <span>📏</span>
+                            <span>${item.size}</span>
+                        </span>
+                        <span class="gallery-item-detail">
+                            <span>🎲</span>
+                            <span>${item.seed}</span>
+                        </span>
+                        <span class="gallery-item-detail">
+                            <span>⏰</span>
+                            <span>${timeAgo}</span>
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        function getTimeAgo(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (minutes < 60) {
+                return `${minutes}分钟前`;
+            } else if (hours < 24) {
+                return `${hours}小时前`;
+            } else {
+                return `${days}天前`;
+            }
+        }
+        
+        function showLoading(show) {
+            loadingSpinner.style.display = show ? 'block' : 'none';
+            galleryGrid.style.display = show ? 'none' : 'flex';
+        }
+        
+        function showEmptyGallery() {
+            galleryGrid.style.display = 'none';
+            emptyGallery.style.display = 'block';
+        }
+    </script>
+</body>
+</html> 

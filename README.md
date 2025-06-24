@@ -8,6 +8,7 @@ A high-performance FastAPI-based implementation of an OpenAI-compatible image ge
 - **🚀 Intelligent Prompt Batching** - Automatic batching of compatible requests for 3-5x GPU efficiency improvement
 - **⚡ Real-time SSE Streaming** - Watch images form step-by-step with intelligent chunking for large images  
 - **🎯 OpenAI Compatibility** - Drop-in replacement for OpenAI's image generation API
+- **🤖 AI-Powered Prompt Optimization** - Intelligent prompt enhancement for better image generation results
 - **🔧 Advanced Configuration** - Environment variables, logging, and deployment options
 - **🧪 Comprehensive Testing** - Full test suite with connectivity, streaming, and performance validation
 - **📚 Complete Documentation** - Detailed API docs, architecture guides, and client examples
@@ -56,17 +57,30 @@ A high-performance FastAPI-based implementation of an OpenAI-compatible image ge
 
 ```
 CogView4-FastAPI/
-├── cogview4_api_server.py      # Main FastAPI server with worker pool + batching
-├── requirements.txt            # Production dependencies
-├── start_server.sh            # Production startup script
-├── web_client.html            # Modern web interface
-├── test_client.py             # Comprehensive test client
-├── test_connectivity.py       # Basic connectivity testing
-├── test_prompt_batching.py    # Prompt batching functionality tests
-├── test_negative_prompt_fix.py # Validation for None negative prompt handling
-├── API_DOCUMENTATION.md       # Detailed API documentation  
-├── TEST_CLIENT_README.md      # Test client guide
-└── LICENSE                    # Apache 2.0 license
+├── src/                          # Backend Python source code
+│   ├── __init__.py              # Package initialization
+│   ├── main.py                  # Main FastAPI server with worker pool + batching
+│   ├── worker.py                # Worker process implementation
+│   ├── processing.py            # Worker pool and batch management
+│   ├── config.py                # Configuration settings
+│   ├── schemas.py               # Pydantic data models
+│   ├── utils.py                 # Utility functions
+│   ├── gallery_manager.py       # Gallery management system
+│   ├── demo_*.py                # Demo and example scripts
+│   └── example_workflow.py      # Example workflow implementation
+├── tests/                       # Test suite
+│   ├── __init__.py              # Test package initialization
+│   ├── test_*.py                # Comprehensive test files
+│   └── test_requirements.txt    # Test-specific dependencies
+├── static/                      # Static files (images, web assets)
+├── run_server.py                # Server entry point
+├── run_tests.py                 # Test runner script
+├── start_server.sh              # Production startup script
+├── requirements.txt             # Production dependencies
+├── web_client.html              # Modern web interface
+├── API_DOCUMENTATION.md         # Detailed API documentation  
+├── TEST_CLIENT_README.md        # Test client guide
+└── LICENSE                      # Apache 2.0 license
 ```
 
 ## 🛠️ Installation & Setup
@@ -94,7 +108,7 @@ CogView4-FastAPI/
 
 3. **Test the installation**
    ```bash
-   python test_connectivity.py
+   python run_tests.py --pattern test_connectivity.py
    ```
 
 The server will automatically:
@@ -143,22 +157,39 @@ The server will automatically:
 
 ## 🧪 Comprehensive Testing Suite
 
-### Test Client (`test_client.py`)
+### Test Runner (`run_tests.py`)
+Advanced test runner with full feature testing:
+
+```bash
+# Run all tests
+python run_tests.py
+
+# Run specific test file
+python run_tests.py --pattern test_client.py
+
+# Run with verbose output
+python run_tests.py --verbose
+
+# Run specific test pattern
+python run_tests.py --pattern "test_*batching*"
+```
+
+### Test Client (`tests/test_client.py`)
 Advanced Python client with full feature testing:
 
 ```bash
 # Run all tests
-python test_client.py --all
+python run_tests.py --pattern test_client.py --all
 
 # Test specific features
-python test_client.py --test-streaming --save-intermediates
-python test_client.py --test-non-streaming --output-dir ./results
+python run_tests.py --pattern test_client.py --test-streaming --save-intermediates
+python run_tests.py --pattern test_client.py --test-non-streaming --output-dir ./results
 
 # Test prompt batching
-python test_prompt_batching.py
+python run_tests.py --pattern test_prompt_batching.py
 
 # Custom configuration
-python test_client.py --all --prompt "A futuristic cityscape" --url http://your-server:8000
+python run_tests.py --pattern test_client.py --all --prompt "A futuristic cityscape" --url http://your-server:8000
 ```
 
 **Features:**
@@ -170,11 +201,11 @@ python test_client.py --all --prompt "A futuristic cityscape" --url http://your-
 - ✅ **Error handling validation**
 - ✅ **Image quality verification**
 
-### Connectivity Testing (`test_connectivity.py`)
+### Connectivity Testing (`tests/test_connectivity.py`)
 Quick validation of basic functionality:
 
 ```bash
-python test_connectivity.py --url http://localhost:8000
+python run_tests.py --pattern test_connectivity.py --url http://localhost:8000
 ```
 
 **Tests:**
@@ -201,6 +232,33 @@ Content-Type: application/json
   "stream": true
 }
 ```
+
+### Prompt Optimization Endpoint
+```http
+POST /v1/prompt/optimize
+Content-Type: application/json
+
+{
+  "prompt": "a cat sitting on a chair",
+  "retry_times": 5
+}
+```
+
+**Response:**
+```json
+{
+  "original_prompt": "a cat sitting on a chair",
+  "optimized_prompt": "In this charming scene, a sleek, black cat perches gracefully on a classic wooden armchair...",
+  "success": true,
+  "message": "Prompt optimized successfully"
+}
+```
+
+**Features:**
+- **Bilingual Support**: Handles both English and Chinese prompts
+- **AI Enhancement**: Adds visual details, lighting, style, and composition
+- **Retry Mechanism**: Configurable retry attempts for reliability
+- **Fast Processing**: Typically completes within 2-5 seconds
 
 ### Monitoring & Health
 - `GET /health` - Worker pool and model status
