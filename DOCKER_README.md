@@ -44,11 +44,12 @@ docker-compose up -d --build
 
 ```bash
 # Build the image (multi-stage build)
-docker buildx build --platform amd64 -t  registry.aimall.ai-links.com/ailinks/aigc-image:v0.1.4 .
+docker buildx build --platform amd64 -t  registry.aimall.ai-links.com/ailinks/aigc-image:v0.1.5 .
 
 # Run the container
 # don't limit cpu, which are needed by quatinization
 chmod -R 777 $(pwd)/static/images
+docker stop aigc-image; docker rm aigc-image
 docker run -d \
   --name aigc-image \
   -p 8000:8000 \
@@ -58,7 +59,7 @@ docker run -d \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/static/images:/app/static/images \
   --memory=128g \
-  registry.aimall.ai-links.com/ailinks/aigc-image:v0.1.4
+  registry.aimall.ai-links.com/ailinks/aigc-image:v0.1.5
 ```
 
 ### 3. Build specific stages (for development)
