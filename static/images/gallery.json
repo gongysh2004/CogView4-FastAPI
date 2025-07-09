@@ -23,17 +23,6 @@
             "num_inference_steps": 20
         },
         {
-            "id": 3,
-            "url": "/static/images/image-1750737009.jpg",
-            "prompt": "在这幅迷人的画面中，一位身材娇小、皮肤白皙的女性，拥有一头长而卷曲、无毛糙的棕色头发，透过她圆润、时尚的眼镜凝视着远方。她深邃的棕色眼睛流露出一种平静和满足的表情。她正轻轻地吮吸着一根肤色香蕉，与她的白皙皮肤形成微妙的对比，营造出一种温馨而诱人的场景。背景是柔和、模糊的房间描绘，增强了这一刻的亲密和轻松氛围。",
-            "negative_prompt": "blurry, low quality, distorted, ugly",
-            "size": "512x512",
-            "seed": 2685296688,
-            "timestamp": 1750737009,
-            "guidance_scale": 5,
-            "num_inference_steps": 20
-        },
-        {
             "id": 4,
             "url": "/static/images/image-1750737143.jpg",
             "prompt": "A minion holding a sign that says 'AiLinks'. The background is filled with futuristic elements like neon lights, circuit boards, and holographic displays. The minion is wearing a tech-themed outfit, possibly with LED lights or digital patterns. The sign itself has a sleek, modern design with glowing edges. The overall atmosphere is high-tech and vibrant, with a mix of dark and neon colors.",
@@ -140,6 +129,39 @@
             "size": "512x512",
             "seed": 2706036684,
             "timestamp": 1750757796,
+            "guidance_scale": 5,
+            "num_inference_steps": 20
+        },
+        {
+            "id": 14,
+            "url": "/static/images/image-1752026193.jpg",
+            "prompt": "在这幅温馨的插画中，一个年轻的女孩静静地坐在窗边，她的长发随风轻轻飘扬。她身穿一件柔软的蓝色针织衫，搭配着宽松的白色长裤，显得既舒适又随性。女孩的眼神温柔而专注，仿佛在凝视着窗外的某个美好景象。她的脸颊微微泛红，透露出一丝害羞和期待。背景是一间温馨的房间，阳光透过半开的窗帘洒在地板上，形成斑驳的光影。整个画面充满了宁静与和谐，让人感受到家的温暖和女孩内心的纯真。",
+            "negative_prompt": "blurry, low quality, distorted, ugly",
+            "size": "512x512",
+            "seed": 2686891676,
+            "timestamp": 1752026193,
+            "guidance_scale": 5,
+            "num_inference_steps": 20
+        },
+        {
+            "id": 15,
+            "url": "/static/images/image-1752034381.jpg",
+            "prompt": "在这幅科幻风格的插画中，一位宇航员正站在宇宙飞船的舷窗外，凝视着深邃的太空。他身穿一套先进的太空服，银色的外壳反射着星光，细节处可见氧气罐、通讯设备和生命维持系统的设计。宇航员的头盔上，蓝色和绿色的指示灯闪烁，显示着系统状态。他的面部表情专注而坚定，透露出对未知世界的探索欲望。背景是一片浩瀚的星海，星星点点的恒星和遥远的星系在黑暗中闪烁，营造出一种神秘而壮观的宇宙氛围。",
+            "negative_prompt": "blurry, low quality, distorted, ugly",
+            "size": "512x512",
+            "seed": 3982519071,
+            "timestamp": 1752034381,
+            "guidance_scale": 5,
+            "num_inference_steps": 20
+        },
+        {
+            "id": 17,
+            "url": "/static/images/image-1752034435.jpg",
+            "prompt": "这幅杰作展现了一位大师级画家的笔触，描绘了一个冬日午后的宁静海滩。阳光透过清澈的空气，洒在细软的沙滩上，形成一片温暖的金色。在画面的中央，一艘精心设计的帆船静静地漂浮在平静的海面上，帆布在微风中轻轻摇曳。帆船的轮廓线条流畅，细节精致，仿佛是艺术家精心雕琢的艺术品。背景是一片宁静的海洋，海天一色，远处隐约可见海鸥翱翔。整个画面充满了宁静与和谐，让人感受到冬日阳光下的温暖与宁静之美。",
+            "negative_prompt": "blurry, low quality, distorted, ugly",
+            "size": "512x512",
+            "seed": 3982704394,
+            "timestamp": 1752034435,
             "guidance_scale": 5,
             "num_inference_steps": 20
         }

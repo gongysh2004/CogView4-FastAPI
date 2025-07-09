@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AiLinks AIGC 图片走廊</title>
+    <title>PicMind 图片走廊</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
     <style>
         /* Gallery specific styles with theme support */
         body {
@@ -39,10 +40,26 @@
             margin-bottom: 30px;
         }
         
-        .gallery-header h1 {
-            color: var(--text-primary);
+        /* Logo styles */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .logo-svg {
+            width: 120px;
+            height: auto;
+            max-height: 50px;
+        }
+        
+        .logo-title {
             font-size: 2.5em;
-            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
             transition: color 0.3s ease;
         }
         
@@ -82,6 +99,13 @@
                 width: calc(50% - 7.5px);
                 min-width: 300px;
             }
+            .logo-svg {
+                width: 110px;
+                max-height: 45px;
+            }
+            .logo-title {
+                font-size: 2.2em;
+            }
         }
         
         @media (max-width: 768px) {
@@ -101,6 +125,17 @@
                 left: 10px;
                 padding: 10px 14px;
                 font-size: 14px;
+            }
+            .logo-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .logo-svg {
+                width: 100px;
+                max-height: 40px;
+            }
+            .logo-title {
+                font-size: 2em;
             }
         }
         
@@ -203,11 +238,65 @@
             transition: all 0.3s ease;
             text-decoration: none;
             display: inline-block;
+            margin-bottom: 10px;
+            width: 96px;
+            min-width: 96px;
+            max-width: none;
+            box-sizing: border-box;
+            white-space: nowrap;
+            line-height: normal;
+            font-family: inherit;
+            text-align: center;
+            vertical-align: middle;
+            outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
         }
         
         .generate-same-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 15px var(--shadow-nav);
+        }
+        
+        .delete-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: var(--text-white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            width: 96px;
+            min-width: 96px;
+            max-width: none;
+            box-sizing: border-box;
+            white-space: nowrap;
+            line-height: normal;
+            font-family: inherit;
+            text-align: center;
+            vertical-align: middle;
+            outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        .delete-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px var(--shadow-nav);
+        }
+        
+        .delete-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .gallery-item-info {
@@ -569,14 +658,17 @@
         </div>
         
         <div class="gallery-header">
-            <h1>🖼️ 图片走廊</h1>
+            <div class="logo-container">
+                <img src="/static/images/picmind3.png" alt="PicMind Logo" class="logo-svg">
+                <h1 class="logo-title">🖼️ 图片走廊</h1>
+            </div>    
             <p>浏览已生成的图片，点击"生成同款"快速创建相似图片</p>
         </div>
         
         <div class="gallery-controls">
             <button class="gallery-control-btn active" data-filter="all">全部图片</button>
             <button class="gallery-control-btn" data-filter="recent">最近生成</button>
-            <button class="gallery-control-btn" data-filter="popular">热门图片</button>
+            <button class="gallery-control-btn" data-filter="popular">精选图片</button>
         </div>
         
         <div class="loading-spinner" id="loadingSpinner">
@@ -596,7 +688,8 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'http://192.168.95.192:8000';
+        // Use API URL from config
+        const API_BASE_URL = window.AppConfig.apiUrl;
         let galleryData = [];
         let currentFilter = 'all';
         
@@ -683,8 +776,11 @@
                     );
                     break;
                 case 'popular':
-                    // 这里可以根据实际需求实现热门逻辑
-                    filteredData = galleryData.slice(0, 3);
+                    // Show most recent images as "popular" for now
+                    // TODO: Implement real popularity metrics when available
+                    filteredData = galleryData
+                        .sort((a, b) => b.timestamp - a.timestamp) // Sort by newest first
+                        .slice(0, 6); // Show top 6 most recent
                     break;
                 default:
                     filteredData = galleryData;
@@ -734,6 +830,7 @@
             const div = document.createElement('div');
             div.className = 'gallery-item';
             div.setAttribute('data-size', item.size); // 添加尺寸属性
+            div.setAttribute('data-image-id', item.id); // 添加图片ID属性
             
             const timeAgo = getTimeAgo(item.timestamp);
             
@@ -748,6 +845,7 @@
                     </div>
                     <a href="index.html?prompt=${encodeURIComponent(item.prompt)}&size=${item.size}&seed=${item.seed}&negative_prompt=${encodeURIComponent(item.negativePrompt)}" 
                        class="generate-same-btn">生成同款</a>
+                                         <button class="delete-btn" onclick="deleteImage(${item.id})">🗑️ 删除</button>
                 </div>
                 <div class="gallery-item-info">
                     <div class="gallery-item-title">${item.prompt.substring(0, 50)}${item.prompt.length > 50 ? '...' : ''}</div>
@@ -845,6 +943,71 @@
         
         // Also try to load theme immediately
         loadTheme();
+        
+        // Delete image function
+        async function deleteImage(imageId) {
+            // Show confirmation dialog
+            const confirmed = confirm('确定要删除这张图片吗？此操作不可撤销。');
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                // Show loading state
+                const deleteButtons = document.querySelectorAll(`[onclick="deleteImage(${imageId})"]`);
+                deleteButtons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.innerHTML = '🗑️ 删除中...';
+                });
+                
+                // Call delete API
+                const response = await fetch(`${API_BASE_URL}/v1/gallery/delete/${imageId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Remove the image from the display
+                    const imageElement = document.querySelector(`[data-image-id="${imageId}"]`);
+                    if (imageElement) {
+                        imageElement.remove();
+                    }
+                    
+                    // Remove from galleryData
+                    galleryData = galleryData.filter(img => img.id !== imageId);
+                    
+                    // Refresh the gallery display
+                    filterAndDisplayGallery();
+                    
+                    // Show success message
+                    alert('图片删除成功！');
+                } else {
+                    throw new Error(result.message || '删除失败');
+                }
+                
+            } catch (error) {
+                console.error('删除图片失败:', error);
+                alert(`删除图片失败: ${error.message}`);
+                
+                // Reset button state
+                const deleteButtons = document.querySelectorAll(`[onclick="deleteImage(${imageId})"]`);
+                deleteButtons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = '🗑️ 删除';
+                });
+            }
+        }
+        
+        // Make deleteImage function globally available
+        window.deleteImage = deleteImage;
     </script>
 </body>
 </html> 

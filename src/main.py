@@ -521,6 +521,70 @@ async def save_to_gallery(request: dict):
         raise HTTPException(status_code=500, detail=f"Save to gallery failed: {str(e)}")
 
 
+@app.delete("/v1/gallery/delete/{image_id}")
+async def delete_from_gallery(image_id: int):
+    """Delete an image from the gallery"""
+    logger.info(f"Received delete request for image ID: {image_id}")
+    
+    try:
+        # 读取现有的gallery.json文件
+        json_file_path = "static/images/gallery.json"
+        
+        if not os.path.exists(json_file_path):
+            logger.warning(f"Gallery JSON file not found: {json_file_path}")
+            raise HTTPException(status_code=404, detail="Gallery data not found")
+        
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            gallery_data = json.load(f)
+        
+        # 查找要删除的图片
+        image_to_delete = None
+        for img in gallery_data['images']:
+            if img['id'] == image_id:
+                image_to_delete = img
+                break
+        
+        if not image_to_delete:
+            logger.warning(f"Image with ID {image_id} not found")
+            raise HTTPException(status_code=404, detail=f"Image with ID {image_id} not found")
+        
+        # 删除图片文件
+        image_file_path = image_to_delete['url'].lstrip('/')
+        if os.path.exists(image_file_path):
+            try:
+                os.remove(image_file_path)
+                logger.info(f"Image file deleted: {image_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete image file: {e}")
+                # 继续删除JSON记录，即使文件删除失败
+        else:
+            logger.warning(f"Image file not found: {image_file_path}")
+        
+        # 从gallery数据中删除图片记录
+        gallery_data['images'] = [img for img in gallery_data['images'] if img['id'] != image_id]
+        
+        # 保存更新后的JSON文件
+        try:
+            with open(json_file_path, 'w', encoding='utf-8') as f:
+                json.dump(gallery_data, f, ensure_ascii=False, indent=4)
+            logger.info(f"Gallery JSON updated, removed image ID: {image_id}")
+        except Exception as e:
+            logger.error(f"Failed to update gallery JSON: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to update gallery data: {str(e)}")
+        
+        return {
+            "success": True,
+            "message": f"Image {image_id} deleted successfully",
+            "deleted_image_id": image_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete from gallery failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Delete from gallery failed: {str(e)}")
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     """Redirect to the web client"""

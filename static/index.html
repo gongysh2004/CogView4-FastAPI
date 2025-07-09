@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AiLinks AIGC 文生图</title>
+    <title>PicMind 文生图</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
     <style>
         /* Override theme toggle positioning when inside navigation */
         .navigation .theme-toggle {
@@ -240,6 +241,27 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px var(--shadow-secondary);
         }
+        
+        /* Logo styles */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .logo-svg {
+            width: 120px;
+            height: auto;
+            max-height: 50px;
+        }
+        
+        .logo-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -257,7 +279,10 @@
         
         <!-- Left Panel - Settings -->
         <div class="left-panel">
-            <h1>🎨  AiLinks文生图设置</h1>
+            <div class="logo-container">
+                <img src="/static/images/picmind3.png" alt="PicMind Logo" class="logo-svg">
+                <h1 class="logo-title">文生图</h1>
+            </div>
             
             <!-- <div class="api-info">
                 <strong>API Server:</strong> <span id="apiUrl">http://192.168.95.192:8000</span> | 
@@ -268,7 +293,7 @@
                 <div class="form-group">
                     <label for="prompt">提示词 *</label>
                     <div class="prompt-container">
-                        <textarea id="prompt" placeholder="Describe the image you want to generate..." required>一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一只红色气球正面缓缓飘来，映着 AiLinks 字样。</textarea>
+                        <textarea id="prompt" placeholder="Describe the image you want to generate..." required>一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一幅美丽的日落时分山湖景观，山脉连绵起伏，湖面波光粼粼，天空被夕阳染成橙红色，远处有几只鸟儿在飞翔。一只红色气球正面缓缓飘来，映着 PicMind 字样。</textarea>
                         <div class="prompt-actions">
                             <button type="button" id="optimizePromptBtn" class="btn-optimize">🤖 优化提示词</button>
                             <button type="button" id="translatePromptBtn" class="btn-translate">🌐 翻译提示词</button>
@@ -293,6 +318,7 @@
                             <option value="512x512" selected>512x512</option>
                             <option value="912x512">912x512 (16:9)</option>
                             <option value="512x912">512x912 (9:16)</option>
+                            <option value="900×1200">900×1200 (3:4)</option>
                             <option value="1024x1024">1024x1024</option>
                             <option value="1280x720">1280x720 (16:9)</option>
                             <option value="720x1280">720x1280 (9:16)</option>
@@ -360,7 +386,6 @@
                 </div>
                 
                 <div class="streaming-container" id="streamingContainer">
-                    <h3>🔄 流式生成进度</h3>
                     <div id="streamingInfo"></div>
                 </div>
                 
@@ -377,8 +402,23 @@
         </div>
     </div>
 
+    <!-- Modal for viewing original size image -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">查看原始大小图片</h2>
+                <button class="modal-close" onclick="closeImageModal()">&times;</button>
+            </div>
+            <div style="text-align: center;">
+                <img id="modalImage" class="modal-image" src="" alt="Original Size Image">
+            </div>
+            <div id="modalInfo" class="modal-info"></div>
+        </div>
+    </div>
+
     <script>
-        const API_BASE_URL = 'http://192.168.95.192:8000';
+        // Use API URL from config
+        const API_BASE_URL = window.AppConfig.apiUrl;
         
         // UI Elements
         const form = document.getElementById('generateForm');
@@ -695,15 +735,28 @@
             }
             imageInfo.textContent = infoText;
             
+            // 创建按钮容器
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'image-actions';
+            
+            // 添加查看原始大小的按钮
+            const viewOriginalBtn = document.createElement('button');
+            viewOriginalBtn.className = 'view-original-btn';
+            viewOriginalBtn.innerHTML = '🔍 查看原始大小';
+            viewOriginalBtn.onclick = () => viewOriginalSize(imageData, infoText);
+            
             // 添加发布到图片走廊的按钮
             const publishBtn = document.createElement('button');
             publishBtn.className = 'publish-btn';
             publishBtn.innerHTML = '📤 发布到图片走廊';
             publishBtn.onclick = () => publishToGallery(imageData, seed);
             
+            buttonContainer.appendChild(viewOriginalBtn);
+            buttonContainer.appendChild(publishBtn);
+            
             imageItem.appendChild(img);
             imageItem.appendChild(imageInfo);
-            imageItem.appendChild(publishBtn);
+            imageItem.appendChild(buttonContainer);
             imageGrid.appendChild(imageItem);
         }
         
@@ -897,12 +950,12 @@
                                     const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
                                     const seedInfo = result.seed !== null && result.seed !== undefined ? ` | 种子: ${result.seed}` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
-                                        <div><strong>进度:</strong> ${progress.toFixed(1)}%</div>
-                                        <div><strong>分块:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}</div>
-                                        <div><strong>时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
-                                        <div><strong>最终图片:</strong> ${result.is_final ? '是' : '否'}</div>
-                                        <div><strong>状态:</strong> 组装图片中...${seedInfo}</div>
+                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}
+                                        <strong>  进度:</strong> ${progress.toFixed(1)}%
+                                        <strong>  分块:</strong> ${Object.keys(chunkStorage[chunkId].chunks).length}/${totalChunks}
+                                        <strong>  时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}
+                                        <strong>  最终图片:</strong> ${result.is_final ? '是' : '否'}
+                                        <strong>  状态:</strong> 组装图片中...${seedInfo}</div>
                                     `;
                                     
                                     // Check if we have all chunks
@@ -933,11 +986,10 @@
                                     const imageInfo = result.total_images > 1 ? ` (Image ${result.image_index + 1}/${result.total_images})` : '';
                                     const seedInfo = result.seed !== null && result.seed !== undefined ? ` | 种子: ${result.seed}` : '';
                                     streamingInfo.innerHTML = `
-                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}</div>
-                                        <div><strong>进度:</strong> ${progress.toFixed(1)}%</div>
-                                        <div><strong>时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}</div>
-                                        <div><strong>最终图片:</strong> ${result.is_final ? '是' : '否'}</div>
-                                        <div><strong>状态:</strong> 图片就绪${seedInfo}</div>
+                                        <div><strong>步数:</strong> ${result.step}/${result.total_steps}${imageInfo}<strong>  进度:</strong> ${progress.toFixed(1)}%
+                                        <strong>  时间:</strong> ${new Date(result.timestamp * 1000).toLocaleTimeString()}
+                                        <strong>  最终图片:</strong> ${result.is_final ? '是' : '否'}
+                                        <strong>  状态:</strong> 图片就绪${seedInfo}</div>
                                     `;
                                     
                                     if (result.image) {
@@ -1031,15 +1083,28 @@
                 }
                 info.textContent = infoText;
                 
+                // 创建按钮容器
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'image-actions';
+                
+                // 添加查看原始大小的按钮
+                const viewOriginalBtn = document.createElement('button');
+                viewOriginalBtn.className = 'view-original-btn';
+                viewOriginalBtn.innerHTML = '🔍 查看原始大小';
+                viewOriginalBtn.onclick = () => viewOriginalSize(imageData, info.textContent);
+                
                 // 添加发布到图片走廊的按钮
                 const publishBtn = document.createElement('button');
                 publishBtn.className = 'publish-btn';
                 publishBtn.innerHTML = '📤 发布到图片走廊';
                 publishBtn.onclick = () => publishToGallery(imageData, seed);
                 
+                buttonContainer.appendChild(viewOriginalBtn);
+                buttonContainer.appendChild(publishBtn);
+                
                 finalImageDiv.appendChild(img);
                 finalImageDiv.appendChild(info);
-                finalImageDiv.appendChild(publishBtn);
+                finalImageDiv.appendChild(buttonContainer);
                 imageGrid.appendChild(finalImageDiv);
                 
                 // Remove corresponding intermediate image when final image arrives
@@ -1255,6 +1320,46 @@
         
         // Initialize theme on page load
         loadTheme();
+        
+        // Modal functions for viewing original size images
+        function viewOriginalSize(imageData, info) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalInfo = document.getElementById('modalInfo');
+            
+            // Set the image source
+            modalImage.src = `data:image/png;base64,${imageData}`;
+            
+            // Set the image info
+            modalInfo.innerHTML = `
+                <strong>图片信息:</strong><br>
+                ${info}<br>
+                <strong>当前显示:</strong> 原始大小<br>
+                <strong>提示:</strong> 点击图片外部区域或右上角 × 关闭预览
+            `;
+            
+            // Show the modal
+            modal.style.display = 'block';
+            
+            // Add click event to close modal when clicking outside
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeImageModal();
+                }
+            };
+        }
+        
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+        }
+        
+        // Add keyboard support for modal
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
     </script>
 </body>
 </html> 

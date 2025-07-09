@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  aigc-image:
+    image: registry.aimall.ai-links.com/ailinks/aigc-image:v0.1.4
+    container_name: aigc-image
+    ports:
+      - "8000:8000"
+    environment:
+      - NUM_WORKER_PROCESSES=3
+    volumes:
+      - /gm-models:/gm-models:ro
+      - ./logs:/app/logs
+      - ./static/images:/app/static/images
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 3
+              capabilities: [gpu]
+        limits:
+          memory: 128G
+    restart: unless-stopped
+    
+    # Fix permissions on startup
+    command: >
+      sh -c "
+        mkdir -p /app/static/images &&
+        chmod 777 /app/static/images &&
+        exec python -m uvicorn main:app --host 0.0.0.0 --port 8000
+      " 
