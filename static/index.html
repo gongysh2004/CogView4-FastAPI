@@ -262,6 +262,72 @@
             color: var(--text-primary);
             margin: 0;
         }
+        
+        /* Custom size input styles */
+        #customSizeContainer {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 15px;
+        }
+        
+        #customSizeContainer label {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        #customSizeContainer input[type="number"] {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        
+        #customSizeContainer input[type="number"]:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px var(--shadow-focus);
+            transform: translateY(-1px);
+        }
+        
+        #customSizeContainer input[type="number"]::placeholder {
+            color: var(--text-secondary);
+        }
+        
+        #applyCustomSize {
+            background: var(--gradient-secondary);
+            color: var(--text-white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px var(--shadow-nav);
+            white-space: nowrap;
+        }
+        
+        #applyCustomSize:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow-nav);
+        }
+        
+        #customSizeContainer small {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-top: 10px;
+            display: block;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -314,7 +380,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="size">图片尺寸</label>
-                        <select id="size">
+                        <select id="size" onchange="handleSizeChange()">
                             <option value="512x512" selected>512x512</option>
                             <option value="912x512">912x512 (16:9)</option>
                             <option value="512x912">512x912 (9:16)</option>
@@ -322,7 +388,7 @@
                             <option value="1024x1024">1024x1024</option>
                             <option value="1280x720">1280x720 (16:9)</option>
                             <option value="720x1280">720x1280 (9:16)</option>
-
+                            <option value="custom">自定义尺寸</option>
                         </select>
                     </div>
                     
@@ -335,6 +401,22 @@
                             <option value="4">4</option> -->
                         </select>
                     </div>
+                </div>
+                
+                <!-- Custom size container - separate row -->
+                <div class="form-group" id="customSizeContainer" style="display: none;">
+                    <label>自定义尺寸</label>
+                    <div style="display: flex; gap: 15px; align-items: center; margin-top: 8px;">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
+                            <input type="number" id="customWidth" placeholder="宽度" min="64" max="2048">
+                            <span style="color: var(--text-secondary); font-weight: bold; font-size: 16px;">×</span>
+                            <input type="number" id="customHeight" placeholder="高度" min="64" max="2048">
+                        </div>
+                        <button type="button" id="applyCustomSize">应用尺寸</button>
+                    </div>
+                    <small>
+                        尺寸范围: 64-2048 像素，必须为16的倍数
+                    </small>
                 </div>
                 
                 <div class="form-row">
@@ -475,10 +557,90 @@
             restoreOriginalPrompt();
         });
         
+        // Custom size elements
+        const customSizeContainer = document.getElementById('customSizeContainer');
+        const customWidth = document.getElementById('customWidth');
+        const customHeight = document.getElementById('customHeight');
+        const applyCustomSizeBtn = document.getElementById('applyCustomSize');
+        
         // Size and number validation
         const MAX_TOTAL_PIXELS = 1024 * 1024 * 4; // 4,194,304 pixels
         
+        // Handle size selection change
+        function handleSizeChange() {
+            const sizeSelect = document.getElementById('size');
+            const selectedValue = sizeSelect.value;
+            
+            if (selectedValue === 'custom') {
+                customSizeContainer.style.display = 'block';
+                // Set default custom size if inputs are empty
+                if (!customWidth.value && !customHeight.value) {
+                    customWidth.value = '512';
+                    customHeight.value = '512';
+                }
+                updateCustomSizeInfo();
+            } else {
+                customSizeContainer.style.display = 'none';
+            }
+            
+            // Trigger validation
+            validateSizeAndNumber();
+        }
+        
+        // Function to make dimensions divisible by 16
+        function makeDivisibleBy16(value) {
+            return Math.round(value / 16) * 16;
+        }
+        
+        // Apply custom size
+        applyCustomSizeBtn.addEventListener('click', function() {
+            let width = parseInt(customWidth.value);
+            let height = parseInt(customHeight.value);
+            
+            if (!width || !height) {
+                showError('请输入有效的宽度和高度');
+                return;
+            }
+            
+            if (width < 64 || width > 2048 || height < 64 || height > 2048) {
+                showError('尺寸必须在 64-2048 像素范围内');
+                return;
+            }
+            
+            // Check if dimensions need adjustment
+            const originalWidth = width;
+            const originalHeight = height;
+            const adjustedWidth = makeDivisibleBy16(width);
+            const adjustedHeight = makeDivisibleBy16(height);
+            
+            if (adjustedWidth !== width || adjustedHeight !== height) {
+                // Update input values to adjusted dimensions
+                customWidth.value = adjustedWidth;
+                customHeight.value = adjustedHeight;
+                width = adjustedWidth;
+                height = adjustedHeight;
+                
+                showSuccess(`尺寸已调整为16的倍数: ${originalWidth}×${originalHeight} → ${width}×${height}`);
+            } else {
+                showSuccess(`自定义尺寸已应用: ${width}×${height}`);
+            }
+            
+            // Validate total pixels
+            const totalPixels = width * height * parseInt(document.getElementById('numImages').value);
+            if (totalPixels >= MAX_TOTAL_PIXELS) {
+                showError(`总像素数 (${totalPixels.toLocaleString()}) 超过最大限制 (${MAX_TOTAL_PIXELS.toLocaleString()})`);
+                return;
+            }
+            
+            validateSizeAndNumber();
+        });
+        
         function parseSizeString(sizeStr) {
+            if (sizeStr === 'custom') {
+                const width = parseInt(customWidth.value) || 512;
+                const height = parseInt(customHeight.value) || 512;
+                return width * height;
+            }
             const [width, height] = sizeStr.split('x').map(Number);
             return width * height;
         }
@@ -487,10 +649,25 @@
             const sizeStr = document.getElementById('size').value;
             const numImages = parseInt(document.getElementById('numImages').value);
             
-            const pixelsPerImage = parseSizeString(sizeStr);
-            const totalPixels = pixelsPerImage * numImages;
+            let pixelsPerImage;
+            let sizeDisplay = sizeStr;
             
-            const isValid = totalPixels < MAX_TOTAL_PIXELS;
+            if (sizeStr === 'custom') {
+                const width = parseInt(customWidth.value) || 0;
+                const height = parseInt(customHeight.value) || 0;
+                pixelsPerImage = width * height;
+                sizeDisplay = `${width}×${height}`;
+                
+                // Check if custom size is valid
+                if (width < 64 || width > 2048 || height < 64 || height > 2048) {
+                    pixelsPerImage = 0; // Force invalid state
+                }
+            } else {
+                pixelsPerImage = parseSizeString(sizeStr);
+            }
+            
+            const totalPixels = pixelsPerImage * numImages;
+            const isValid = totalPixels > 0 && totalPixels < MAX_TOTAL_PIXELS;
             const generateBtn = document.getElementById('generateBtn');
             
             // Clear any existing validation message
@@ -503,7 +680,18 @@
                 // Add validation error message
                 const validationDiv = document.createElement('div');
                 validationDiv.className = 'validation-message error';
-                validationDiv.innerHTML = `❌ Total pixel count (${totalPixels.toLocaleString()}) exceeds maximum allowed (${MAX_TOTAL_PIXELS.toLocaleString()}). Please reduce image size or number of images.`;
+                
+                if (sizeStr === 'custom') {
+                    const width = parseInt(customWidth.value) || 0;
+                    const height = parseInt(customHeight.value) || 0;
+                    if (width < 64 || width > 2048 || height < 64 || height > 2048) {
+                        validationDiv.innerHTML = `❌ 自定义尺寸必须在 64-2048 像素范围内`;
+                    } else {
+                        validationDiv.innerHTML = `❌ 总像素数 (${totalPixels.toLocaleString()}) 超过最大限制 (${MAX_TOTAL_PIXELS.toLocaleString()})。请减小图片尺寸或图片数量。`;
+                    }
+                } else {
+                    validationDiv.innerHTML = `❌ 总像素数 (${totalPixels.toLocaleString()}) 超过最大限制 (${MAX_TOTAL_PIXELS.toLocaleString()})。请减小图片尺寸或图片数量。`;
+                }
                 
                 // Insert after the numImages form group
                 const numImagesGroup = document.getElementById('numImages').closest('.form-group');
@@ -521,7 +709,55 @@
         
         // Add event listeners for real-time validation
         document.getElementById('size').addEventListener('change', validateSizeAndNumber);
-        document.getElementById('numImages').addEventListener('change', validateSizeAndNumber);
+        document.getElementById('numImages').addEventListener('change', function() {
+            validateSizeAndNumber();
+            if (document.getElementById('size').value === 'custom') {
+                updateCustomSizeInfo();
+            }
+        });
+        
+        // Add event listeners for custom size inputs
+        customWidth.addEventListener('input', function() {
+            if (document.getElementById('size').value === 'custom') {
+                validateSizeAndNumber();
+                updateCustomSizeInfo();
+            }
+        });
+        
+        customHeight.addEventListener('input', function() {
+            if (document.getElementById('size').value === 'custom') {
+                validateSizeAndNumber();
+                updateCustomSizeInfo();
+            }
+        });
+        
+        // Update custom size information
+        function updateCustomSizeInfo() {
+            const width = parseInt(customWidth.value) || 0;
+            const height = parseInt(customHeight.value) || 0;
+            const numImages = parseInt(document.getElementById('numImages').value);
+            const totalPixels = width * height * numImages;
+            
+            const infoElement = customSizeContainer.querySelector('small');
+            if (width > 0 && height > 0) {
+                const adjustedWidth = makeDivisibleBy16(width);
+                const adjustedHeight = makeDivisibleBy16(height);
+                const needsAdjustment = adjustedWidth !== width || adjustedHeight !== height;
+                
+                let adjustmentInfo = '';
+                if (needsAdjustment) {
+                    adjustmentInfo = `<br><span style="color: #ff9800;">⚠️ 将调整为: ${adjustedWidth}×${adjustedHeight} (16的倍数)</span>`;
+                }
+                
+                infoElement.innerHTML = `
+                    尺寸范围: 64-2048 像素，必须为16的倍数<br>
+                    当前: ${width}×${height} = ${(width * height).toLocaleString()} 像素<br>
+                    总像素数: ${totalPixels.toLocaleString()} (${numImages} 张图片)${adjustmentInfo}
+                `;
+            } else {
+                infoElement.innerHTML = '尺寸范围: 64-2048 像素，必须为16的倍数';
+            }
+        }
         
         // Check API health on load
         async function checkApiHealth() {
@@ -783,10 +1019,33 @@
             clearMessages();
             imageGrid.innerHTML = '';
             
+            // Get size value, handling custom size
+            let sizeValue = document.getElementById('size').value;
+            if (sizeValue === 'custom') {
+                const width = parseInt(customWidth.value);
+                const height = parseInt(customHeight.value);
+                if (width && height) {
+                    // Ensure dimensions are divisible by 16
+                    const adjustedWidth = makeDivisibleBy16(width);
+                    const adjustedHeight = makeDivisibleBy16(height);
+                    sizeValue = `${adjustedWidth}x${adjustedHeight}`;
+                    
+                    // Update input values if they were adjusted
+                    if (adjustedWidth !== width || adjustedHeight !== height) {
+                        customWidth.value = adjustedWidth;
+                        customHeight.value = adjustedHeight;
+                        showSuccess(`尺寸已自动调整为16的倍数: ${adjustedWidth}×${adjustedHeight}`);
+                    }
+                } else {
+                    showError('请输入有效的自定义尺寸');
+                    return;
+                }
+            }
+            
             const formData = {
                 prompt: document.getElementById('prompt').value,
                 negative_prompt: document.getElementById('negativePrompt').value || null,
-                size: document.getElementById('size').value,
+                size: sizeValue,
                 n: parseInt(document.getElementById('numImages').value),
                 guidance_scale: parseFloat(document.getElementById('guidanceScale').value),
                 num_inference_steps: parseInt(document.getElementById('steps').value),

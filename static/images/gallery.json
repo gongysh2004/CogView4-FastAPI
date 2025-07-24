@@ -164,6 +164,17 @@
             "timestamp": 1752034435,
             "guidance_scale": 5,
             "num_inference_steps": 20
+        },
+        {
+            "id": 18,
+            "url": "/static/images/image-1752037529.jpg",
+            "prompt": "在这幅温馨的插画中，一只毛茸茸的小狗正蜷缩在柔软的草地上，它的眼睛明亮而好奇，似乎在享受着温暖的阳光。小狗的毛发呈现出自然的棕色，柔软的毛发在阳光下闪烁着淡淡的金色光泽。它的耳朵微微向前倾，尾巴轻轻摇摆，透露出它的快乐和放松。背景是一片宁静的乡村风景，远处是一片郁郁葱葱的树林，近处是几朵盛开的花朵，为这幅画面增添了一抹自然的色彩。小狗的表情和姿态都充满了纯真和可爱，让人忍不住想要靠近它。",
+            "negative_prompt": "blurry, low quality, distorted, ugly",
+            "size": "512x512",
+            "seed": 3985804507,
+            "timestamp": 1752037529,
+            "guidance_scale": 5,
+            "num_inference_steps": 20
         }
     ]
 }
